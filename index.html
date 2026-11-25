@@ -1,0 +1,908 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#7a4a22">
+<meta name="description" content="老街記憶店：給長輩的懷舊雜貨店記憶力訓練遊戲">
+<title>老街記憶店</title>
+<style>
+:root{
+  --bg:#f6ecd9; --paper:#fffaf0; --wood:#8a5a2e; --wood-dark:#5a3818; --wood-light:#c9955c;
+  --red:#b3261e; --red-dark:#86190f; --gold:#ffd97a; --ink:#24160a; --muted:#4f3c28;
+  --green:#1f6e2a; --orange:#a64b00; --line:#d6bf98;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+[hidden]{display:none!important}
+html,body{margin:0;background:var(--bg);color:var(--ink);
+  font-family:"PingFang TC","Noto Sans TC","Noto Sans CJK TC","Microsoft JhengHei","Heiti TC",sans-serif;
+  font-size:20px;line-height:1.45}
+body{touch-action:manipulation;-webkit-user-select:none;user-select:none;-webkit-text-size-adjust:100%}
+button{font:inherit;color:inherit;touch-action:manipulation;cursor:pointer;border:none;background:none;padding:0}
+button:disabled{cursor:default}
+.screen{display:none;min-height:100vh;min-height:100dvh;max-width:560px;margin:0 auto;
+  padding:12px 16px calc(16px + env(safe-area-inset-bottom))}
+.screen.active{display:flex;flex-direction:column;gap:12px}
+#game.active{gap:8px;padding-top:8px}
+
+/* ---------- common buttons ---------- */
+.btn{min-height:64px;min-width:64px;border-radius:16px;padding:10px 18px;font-size:24px;font-weight:700;
+  display:inline-flex;align-items:center;justify-content:center;gap:8px;
+  transition:transform .08s, filter .15s;box-shadow:0 4px 0 rgba(0,0,0,.25)}
+.btn:active{transform:translateY(3px);box-shadow:0 1px 0 rgba(0,0,0,.25)}
+.btn-red{background:var(--red);color:#fff;border:3px solid var(--red-dark)}
+.btn-wood{background:var(--wood);color:#fff;border:3px solid var(--wood-dark)}
+.btn-paper{background:var(--paper);color:var(--ink);border:3px solid var(--wood)}
+.btn-green{background:var(--green);color:#fff;border:3px solid #124518}
+.btn-big{min-height:84px;font-size:30px;width:100%}
+.btn:disabled{opacity:.45;filter:grayscale(.6)}
+
+/* ---------- home ---------- */
+.sign{margin-top:8px;background:linear-gradient(#c4302a,#9c1f18);border:8px solid var(--wood);
+  border-radius:14px;box-shadow:0 0 0 3px var(--wood-dark),0 8px 0 rgba(0,0,0,.2);
+  padding:16px 10px;text-align:center;color:var(--gold);position:relative}
+.sign::before,.sign::after{content:"";position:absolute;top:-30px;width:6px;height:24px;background:var(--wood-dark)}
+.sign::before{left:22%}.sign::after{right:22%}
+.sign h1{margin:0;font-size:46px;letter-spacing:6px;
+  font-family:"Songti TC","STSong","Noto Serif TC","Noto Serif CJK TC","PMingLiU",serif;
+  text-shadow:2px 2px 0 #5a0d08}
+.sign p{margin:4px 0 0;font-size:20px;color:#ffe9b8}
+.card{background:var(--paper);border:3px solid var(--line);border-radius:18px;padding:14px 16px}
+.streak{text-align:center}
+.streak .big{font-size:32px;font-weight:800;color:var(--red-dark)}
+.streak .big b{font-size:44px}
+.streak .sub{font-size:21px;color:var(--muted)}
+.setrow{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:6px 0}
+.setrow .lbl{font-size:22px;font-weight:700;min-width:5.5em}
+.seg{display:flex;gap:8px;flex:1}
+.seg button{flex:1;min-height:60px;border-radius:14px;border:3px solid var(--wood);background:#fff;font-size:22px;font-weight:700}
+.seg button[aria-pressed="true"]{background:var(--wood);color:#fff}
+.howto{font-size:21px;margin:0;padding-left:1.3em}
+.howto li{margin:4px 0}
+.note{font-size:20px;color:var(--orange);margin:6px 0 0}
+
+/* ---------- game ---------- */
+.topbar{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.topbar .home{min-height:60px;min-width:60px;font-size:22px;padding:6px 12px;white-space:nowrap;flex:none}
+.pill{background:var(--paper);border:3px solid var(--line);border-radius:30px;padding:6px 14px;font-size:22px;font-weight:700;white-space:nowrap}
+.pill.heart{color:var(--red-dark)}
+.counter{background:linear-gradient(#a8743f,#8a5a2e);border:4px solid var(--wood-dark);border-radius:18px;padding:10px;position:relative;overflow:hidden}
+.custs{display:flex;flex-wrap:wrap;gap:10px;align-items:flex-start}
+.cust{display:flex;flex-direction:column;align-items:center;width:84px;flex:none}
+.cust.walkin{animation:walkin .7s ease-out}
+.cust.walkout{animation:walkout .6s ease-in forwards}
+.cust.happy .face{animation:hop .5s ease 2}
+.cust.puzzled .face{animation:tilt .6s ease}
+.cust.active-target .face{box-shadow:0 0 0 5px var(--gold)}
+@keyframes walkin{from{transform:translateX(320px);opacity:0}to{transform:none;opacity:1}}
+@keyframes walkout{to{transform:translateX(-320px);opacity:0}}
+@keyframes hop{50%{transform:translateY(-14px)}}
+@keyframes tilt{25%{transform:rotate(-10deg)}75%{transform:rotate(10deg)}}
+.face{width:78px;height:78px;border-radius:50%;background:#ffe9c4;border:4px solid var(--wood-dark);
+  display:flex;align-items:center;justify-content:center;font-size:52px;line-height:1}
+.cname{margin-top:4px;background:var(--paper);border-radius:10px;padding:0 6px;font-size:20px;font-weight:700;white-space:nowrap}
+.bubble{flex:1;background:#fff;border:3px solid var(--wood-dark);border-radius:18px;padding:12px 14px;
+  font-size:24px;line-height:1.5;min-height:110px;position:relative;font-weight:600}
+.bubble::before{content:"";position:absolute;left:-14px;top:26px;border:10px solid transparent;border-right:14px solid var(--wood-dark);border-left:0}
+.bubble .who{color:var(--red-dark);font-weight:800}
+.bubble .hidden-msg{color:var(--muted);font-weight:600}
+.bubble .hint{color:var(--orange)}
+.bubble .good{color:var(--green);font-weight:800}
+.bubble p{margin:0 0 4px}
+.ctrls{display:flex;gap:10px;flex-basis:100%}
+.ctrls .btn{flex:1;font-size:22px;padding:8px 10px}
+.counter.compact{padding:8px}
+.counter.compact .cust{width:66px}
+.counter.compact .face{width:60px;height:60px;font-size:40px;border-width:3px}
+.counter.compact .bubble{min-height:0;font-size:22px;padding:8px 12px}
+.counter.compact .bubble::before{top:18px}
+.counter.compact .ctrls{flex-basis:auto;width:80px;flex-direction:column}
+.counter.compact .ctrls .btn{flex-direction:column;gap:0;font-size:20px;padding:4px;min-height:76px;line-height:1.2}
+.counter.compact .ctrls .long{display:none}
+.counter.compact.twin #custBox{flex-direction:row!important}
+.counter.compact.twin .ctrls{margin-left:auto}
+.counter.compact.twin .bubble{order:3;flex-basis:100%}
+.counter.compact.twin .bubble::before{display:none}
+
+.shelf-wrap{position:relative}
+.shelf{display:grid;grid-template-columns:repeat(4,1fr);gap:10px 8px;padding:8px 8px 12px;border-radius:16px;
+  background:#9b6a3a;border:4px solid var(--wood-dark)}
+.tile{position:relative;background:var(--paper);border:3px solid var(--wood-dark);border-radius:12px;min-height:80px;box-shadow:0 5px 0 var(--wood-dark);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;padding:4px 2px;transition:transform .1s,background .2s}
+.tile:active{transform:scale(.94)}
+.tile .ic{font-size:36px;line-height:1.1;height:42px;display:flex;align-items:center}
+.tile .ic svg{width:40px;height:40px}
+.tile .nm{font-size:22px;font-weight:800;line-height:1.15}
+.tile.has{background:#fff0c8;border-color:var(--red)}
+.tile .badge{position:absolute;top:-8px;right:-6px;min-width:34px;height:34px;border-radius:17px;background:var(--red);color:#fff;
+  font-size:22px;font-weight:800;display:flex;align-items:center;justify-content:center;border:2px solid #fff;padding:0 6px}
+.pop{animation:pop .35s ease}
+@keyframes pop{40%{transform:scale(1.15)}}
+.lock{position:absolute;inset:0;border-radius:16px;background:rgba(246,236,217,.88);display:none;
+  align-items:center;justify-content:center;text-align:center;font-size:26px;font-weight:800;color:var(--wood-dark);padding:20px}
+.shelf-wrap.locked .lock{display:flex}
+
+.basket{background:var(--paper);border:3px dashed var(--wood);border-radius:16px;padding:8px 10px;display:flex;flex-wrap:wrap;align-items:center;gap:8px}
+.basket.shake{animation:shake .5s ease}
+@keyframes shake{20%{transform:translateX(-8px)}40%{transform:translateX(8px)}60%{transform:translateX(-5px)}80%{transform:translateX(5px)}}
+.basket h2{margin:0;font-size:22px;white-space:nowrap}
+.btabs{display:flex;gap:8px;flex-basis:100%}
+.btabs button{flex:1;min-height:60px;border-radius:14px;border:3px solid var(--wood);background:#fff;font-size:21px;font-weight:800}
+.btabs button[aria-pressed="true"]{background:var(--wood);color:#fff}
+.chips{font-size:22px;font-weight:700;flex:1}
+.chip{min-height:60px;border-radius:14px;background:#fff0c8;border:3px solid var(--red);padding:4px 12px;font-size:22px;font-weight:800;display:inline-flex;align-items:center;gap:6px}
+.chip svg{width:30px;height:30px}
+.empty{color:var(--muted);font-size:21px}
+.actions{display:grid;grid-template-columns:1fr 2fr;gap:10px}
+.actions .btn{white-space:nowrap;padding:10px}
+
+/* ---------- modal / toast ---------- */
+.modal{position:fixed;inset:0;background:rgba(30,18,6,.55);display:none;align-items:center;justify-content:center;z-index:20;padding:16px}
+.modal.show{display:flex}
+.sheet{background:var(--paper);border:4px solid var(--wood);border-radius:22px;padding:18px;width:100%;max-width:440px;text-align:center}
+.sheet .bigic{font-size:64px;line-height:1.1}
+.sheet .bigic svg{width:72px;height:72px}
+.sheet h3{margin:4px 0 12px;font-size:30px}
+.qgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:12px}
+.qgrid button{min-height:76px;font-size:34px;font-weight:800;border-radius:16px;background:#fff;border:3px solid var(--wood);box-shadow:0 4px 0 rgba(0,0,0,.2)}
+.qgrid button[aria-pressed="true"]{background:var(--red);color:#fff;border-color:var(--red-dark)}
+.sheet .row2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.toast{position:fixed;left:50%;bottom:calc(96px + env(safe-area-inset-bottom));transform:translateX(-50%);background:var(--ink);color:#fff;
+  font-size:22px;font-weight:700;padding:12px 20px;border-radius:16px;z-index:30;max-width:92vw;text-align:center;
+  opacity:0;pointer-events:none;transition:opacity .25s}
+.toast.show{opacity:1}
+.float{position:fixed;font-size:34px;font-weight:900;color:var(--red);pointer-events:none;z-index:25;animation:floatup 1.6s ease-out forwards;text-shadow:0 2px 0 #fff}
+@keyframes floatup{from{opacity:1;transform:translateY(0)}to{opacity:0;transform:translateY(-120px)}}
+
+/* ---------- end ---------- */
+.endbox{text-align:center}
+.endbox .bigic{font-size:80px;line-height:1.1}
+.endbox h2{margin:4px 0;font-size:34px;color:var(--red-dark)}
+.endbox .msg{font-size:24px;margin:8px 0 4px}
+.stats{list-style:none;padding:0;margin:0;text-align:left}
+.stats li{display:flex;justify-content:space-between;gap:10px;padding:10px 4px;border-bottom:2px dotted var(--line);font-size:23px}
+.stats li b{color:var(--red-dark)}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+@media (max-width:370px){.counter.compact .cust{width:56px}.counter.compact .face{width:52px;height:52px;font-size:34px}.counter.compact .cname{font-size:20px}.counter.compact .ctrls{width:68px}.counter.compact .bubble{font-size:20px}.custs{gap:8px}.tile .nm{font-size:20px}.tile .ic{font-size:38px}.bubble{font-size:22px}}
+</style>
+</head>
+<body>
+
+<!-- ============ HOME ============ -->
+<section id="home" class="screen active" aria-label="首頁">
+  <div class="sign"><h1>老街記憶店</h1><p>懷舊雜貨 · 記性訓練</p></div>
+  <div class="card streak">
+    <div class="big" id="streakText">🏮 已連續開店 <b>0</b> 天</div>
+    <div class="sub" id="streakSub"></div>
+  </div>
+  <button class="btn btn-red btn-big" id="openBtn">🏪 開店營業</button>
+  <div class="card">
+    <div class="setrow"><span class="lbl">客人說：</span>
+      <div class="seg" data-set="lang"><button data-v="yue">粵語</button><button data-v="cmn">國語</button></div></div>
+    <div class="setrow"><span class="lbl">說話速度：</span>
+      <div class="seg" data-set="rate"><button data-v="slow">慢一點</button><button data-v="normal">正常</button></div></div>
+    <div class="setrow"><span class="lbl">提示音效：</span>
+      <div class="seg" data-set="sound"><button data-v="on">開</button><button data-v="off">關</button></div></div>
+    <button class="btn btn-paper" id="testVoice" style="width:100%;margin-top:6px">🔊 試聽客人聲音</button>
+    <p class="note" id="voiceNote" hidden></p>
+  </div>
+  <div class="card">
+    <ol class="howto">
+      <li>客人會說要買甚麼，請用心記住。</li>
+      <li>客人說完，清單會收起來。</li>
+      <li>點貨架上的貨品，選好數量。</li>
+      <li>拿齊了就按「結帳」。</li>
+      <li>沒有時間限制，聽不清楚可以按「再聽一次」。</li>
+    </ol>
+  </div>
+</section>
+
+<!-- ============ GAME ============ -->
+<section id="game" class="screen" aria-label="開店中">
+  <div class="topbar">
+    <button class="btn btn-paper home" id="homeBtn" aria-label="回首頁">🏠 首頁</button>
+    <span class="pill" id="roundPill">第 1 / 5 位</span>
+    <span class="pill heart" id="scorePill">❤️ 0</span>
+  </div>
+  <div class="counter" id="counter">
+    <div class="custs">
+      <div id="custBox" style="display:flex;flex-direction:column;gap:8px"></div>
+      <div class="bubble" id="bubble" aria-live="polite"></div>
+      <div class="ctrls" id="ctrls">
+        <button class="btn btn-paper" id="replayBtn" aria-label="再聽一次"><span>🔊</span><span>再聽<span class="long">一次</span></span></button>
+        <button class="btn btn-green" id="readyBtn">👍 記好了</button>
+      </div>
+    </div>
+  </div>
+  <div class="shelf-wrap" id="shelfWrap">
+    <div class="shelf" id="shelf"></div>
+    <div class="lock" id="lockMsg">👂 請先聽客人說完</div>
+  </div>
+  <div class="basket" id="basket">
+    <div class="btabs" id="btabs" hidden></div>
+    <h2 id="basketTitle">🧺 籃子：</h2>
+    <div class="chips" id="chips"></div>
+  </div>
+  <div class="actions" id="actions">
+    <button class="btn btn-paper" id="clearBtn">🗑️ 清空</button>
+    <button class="btn btn-red" id="payBtn">✅ 結帳</button>
+  </div>
+  <button class="btn btn-green btn-big" id="nextBtn" hidden>下一位客人 ▶</button>
+</section>
+
+<!-- ============ END ============ -->
+<section id="end" class="screen" aria-label="今日成績">
+  <div class="sign"><h1>老街記憶店</h1><p>今天收舖啦</p></div>
+  <div class="card endbox">
+    <div class="bigic" id="endIcon">🎉</div>
+    <h2 id="endTitle">辛苦了，老闆！</h2>
+    <p class="msg" id="endMsg"></p>
+  </div>
+  <div class="card"><ul class="stats" id="endStats"></ul></div>
+  <button class="btn btn-red btn-big" id="againBtn">🔁 再開一局</button>
+  <button class="btn btn-paper btn-big" id="backBtn">🏠 返回首頁</button>
+</section>
+
+<!-- quantity picker -->
+<div class="modal" id="picker" role="dialog" aria-modal="true" aria-labelledby="pkTitle">
+  <div class="sheet">
+    <div class="bigic" id="pkIcon"></div>
+    <h3 id="pkTitle"></h3>
+    <div class="qgrid" id="pkGrid"></div>
+    <div class="row2">
+      <button class="btn btn-paper" id="pkZero">放回貨架</button>
+      <button class="btn btn-wood" id="pkCancel">取消</button>
+    </div>
+  </div>
+</div>
+
+<!-- confirm leave -->
+<div class="modal" id="leaveModal" role="dialog" aria-modal="true">
+  <div class="sheet">
+    <div class="bigic">🏠</div>
+    <h3>要提早收舖嗎？</h3>
+    <div class="row2">
+      <button class="btn btn-red" id="leaveYes">回首頁</button>
+      <button class="btn btn-green" id="leaveNo">繼續開店</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script>
+(function(){
+'use strict';
+
+/* ================= DATA ================= */
+const SVG = {
+  sugar:'<svg viewBox="0 0 64 64" aria-hidden="true"><path d="M14 16 Q32 6 50 16 L54 58 L10 58 Z" fill="#fff" stroke="#6b4a2a" stroke-width="3"/><rect x="11" y="30" width="42" height="18" fill="#2f6db3"/><text x="32" y="45" font-size="16" text-anchor="middle" fill="#fff" font-weight="bold">糖</text></svg>',
+  soy:'<svg viewBox="0 0 64 64" aria-hidden="true"><rect x="27" y="3" width="10" height="8" rx="2" fill="#b3261e"/><path d="M26 11h12v8q9 6 9 15v23q0 4-4 4H21q-4 0-4-4V34q0-9 9-15z" fill="#3b2314" stroke="#1d0f06" stroke-width="2"/><rect x="19" y="33" width="26" height="18" fill="#f3e2b8"/><text x="32" y="46.5" font-size="11" text-anchor="middle" fill="#b3261e" font-weight="bold">醬油</text></svg>',
+  match:'<svg viewBox="0 0 64 64" aria-hidden="true"><g transform="rotate(18 40 20)"><rect x="38" y="4" width="4" height="30" fill="#e0b070"/><ellipse cx="40" cy="5" rx="4" ry="5" fill="#8b0000"/></g><rect x="6" y="26" width="52" height="30" rx="3" fill="#c62828" stroke="#6d1010" stroke-width="2"/><rect x="6" y="37" width="52" height="8" fill="#ffd54f"/></svg>'
+};
+const ITEMS = [
+  {id:'rice',   name:'白米', icon:'🍚', u:{yue:'包',cmn:'包'}},
+  {id:'salt',   name:'鹽',   icon:'🧂', u:{yue:'包',cmn:'包'}},
+  {id:'sugar',  name:'糖',   svg:'sugar', u:{yue:'包',cmn:'包'}},
+  {id:'soy',    name:'醬油', svg:'soy',   u:{yue:'樽',cmn:'瓶'}},
+  {id:'egg',    name:'雞蛋', icon:'🥚', u:{yue:'隻',cmn:'顆'}},
+  {id:'noodle', name:'麵線', icon:'🍜', u:{yue:'紮',cmn:'把'}},
+  {id:'soda',   name:'汽水', icon:'🥤', u:{yue:'樽',cmn:'瓶'}},
+  {id:'biscuit',name:'餅乾', icon:'🍪', u:{yue:'包',cmn:'包'}},
+  {id:'soap',   name:'肥皂', icon:'🧼', u:{yue:'件',cmn:'塊'}},
+  {id:'match',  name:'火柴', svg:'match', u:{yue:'盒',cmn:'盒'}},
+  {id:'tea',    name:'茶葉', icon:'🍵', u:{yue:'罐',cmn:'罐'}},
+  {id:'can',    name:'罐頭', icon:'🥫', u:{yue:'罐',cmn:'罐'}}
+];
+const ITEM = Object.fromEntries(ITEMS.map(i=>[i.id,i]));
+const PEOPLE = [
+  {id:'chan',  name:'陳婆婆', face:'👵', pitch:1.15},
+  {id:'lee',   name:'李伯伯', face:'👴', pitch:0.85},
+  {id:'wong',  name:'王先生', face:'👨', pitch:0.95},
+  {id:'ho',    name:'何小姐', face:'👩', pitch:1.2},
+  {id:'cheung',name:'張太太', face:'🧓', pitch:1.05},
+  {id:'ming',  name:'小明',   face:'👦', pitch:1.35},
+  {id:'mei',   name:'阿美',   face:'👧', pitch:1.4},
+  {id:'wong2', name:'黃師傅', face:'🧔', pitch:0.8}
+];
+/* difficulty: n = number of different items, q = max quantity */
+const LEVELS = [null,
+  {n:1,q:1},{n:2,q:1},{n:2,q:2},{n:3,q:1},{n:3,q:2},{n:3,q:3},{n:4,q:2},{n:4,q:3},{n:5,q:3}];
+const MAXL = LEVELS.length-1;
+const ROUNDS = 5;
+const UNLOCK_LEVEL = 5;   // reaching this level once unlocks the advanced rounds
+const NUM = ['零','一','兩','三','四','五','六'];
+
+const T = {
+  yue:{
+    greet:['老闆，唔該我要{L}。','早晨老闆！我想買{L}。','老闆，幫我拎{L}啦，唔該晒。'],
+    and:'同埋',
+    thanks:['啱晒！多謝老闆！','全部都啱，老闆好記性！','好嘢！下次再嚟幫襯！'],
+    thanksRetry:['啱晒喇！多謝晒！','冇錯喇，多謝老闆！'],
+    missing:'老闆，好似漏咗{N}喎。', missing2:'老闆，好似漏咗{P}{N}喎。',
+    extra:'老闆，我好似冇要{N}喎。',
+    qty:'老闆，{N}嘅數量好似唔啱喎。', qty2:'老闆，{N}我要{P}㗎。',
+    comfort:'唔緊要，慢慢嚟。',
+    repeat:'我再講多次：',
+    empty:'老闆，個籃仲係空嘅喎。',
+    test:'老闆，早晨！我想買兩包鹽同埋一樽醬油。',
+    change:['啊，等等！{A}唔要喇，換{P}{B}啦。','哎呀，諗返起，{A}唔要喇，改做{P}{B}。'],
+    regular:['老闆，又係我呀！同上次一樣，唔該。','老闆，我又嚟喇！照舊，同上次一樣。'],
+    lastTime:'上次我買咗{L}。'
+  },
+  cmn:{
+    greet:['老闆，麻煩給我{L}。','老闆早！我想買{L}。','老闆，我要{L}，謝謝。'],
+    and:'和',
+    thanks:['全對了！謝謝老闆！','都對了，老闆記性真好！','太好了！下次再來光顧！'],
+    thanksRetry:['這次對了！謝謝你！','沒錯了，謝謝老闆！'],
+    missing:'老闆，好像少了{N}哦。', missing2:'老闆，好像少了{P}{N}哦。',
+    extra:'老闆，我好像沒有要{N}哦。',
+    qty:'老闆，{N}的數量好像不太對哦。', qty2:'老闆，{N}我要{P}喔。',
+    comfort:'沒關係，慢慢來。',
+    repeat:'我再說一次：',
+    empty:'老闆，籃子還是空的喔。',
+    test:'老闆早！我想買兩包鹽和一瓶醬油。',
+    change:['啊，等一下！{A}不要了，換成{P}{B}。','哎呀，我想想，{A}不要了，改成{P}{B}。'],
+    regular:['老闆，又是我！跟上次一樣，麻煩你。','老闆，我又來了！照舊，跟上次一樣。'],
+    lastTime:'我上次買了{L}。'
+  }
+};
+
+/* ================= HELPERS ================= */
+const $ = id => document.getElementById(id);
+const rand = (a,b) => a + Math.floor(Math.random()*(b-a+1));
+const pickOne = arr => arr[Math.floor(Math.random()*arr.length)];
+const shuffle = arr => { const a=arr.slice(); for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];} return a; };
+const fill = (s,o) => s.replace(/\{(\w)\}/g,(m,k)=>o[k]!=null?o[k]:m);
+const esc = s => String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const iconHTML = it => it.svg ? SVG[it.svg] : esc(it.icon);
+const unit = id => ITEM[id].u[D.lang];
+const qtyPhrase = (id,q) => NUM[q] + unit(id);              // 兩包
+const itemPhrase = (id,q) => qtyPhrase(id,q) + ITEM[id].name; // 兩包鹽
+function listPhrase(order){
+  const parts = order.map(o=>itemPhrase(o.id,o.q));
+  if(parts.length<2) return parts.join('');
+  return parts.slice(0,-1).join('、') + T[D.lang].and + parts[parts.length-1];
+}
+function dayKey(d){ d=d||new Date(); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
+
+/* ================= STORAGE ================= */
+const KEY = 'laojie-memory-store-v1';
+function defaults(){ return {lang:'yue',rate:'slow',sound:'on',level:1,streakRight:0,streakWrong:0,maxLevelEver:1,days:{},totalScore:0}; }
+function load(){ try{ const s = JSON.parse(localStorage.getItem(KEY)||'null'); return Object.assign(defaults(), s||{}); }catch(e){ return defaults(); } }
+function save(){ try{ localStorage.setItem(KEY, JSON.stringify(D)); }catch(e){} }
+const D = load();
+if(!(D.level>=1 && D.level<=MAXL)) D.level = 1;
+
+function streakDays(){
+  const d = new Date();
+  if(!D.days[dayKey(d)]) d.setDate(d.getDate()-1);
+  let n=0; while(D.days[dayKey(d)]){ n++; d.setDate(d.getDate()-1); }
+  return n;
+}
+function today(){ const k=dayKey(); if(!D.days[k]) D.days[k]={maxLevel:D.level,games:0,score:0}; return D.days[k]; }
+
+/* ================= SOUND ================= */
+const Sfx = {
+  ctx:null,
+  ensure(){
+    if(!this.ctx){ const AC = window.AudioContext||window.webkitAudioContext; if(AC) this.ctx = new AC(); }
+    if(this.ctx && this.ctx.state==='suspended') this.ctx.resume();
+  },
+  tone(f,start,dur,type,vol){
+    const c=this.ctx, o=c.createOscillator(), g=c.createGain(), t=c.currentTime+start;
+    o.type=type||'sine'; o.frequency.setValueAtTime(f,t);
+    g.gain.setValueAtTime(0.0001,t); g.gain.exponentialRampToValueAtTime(vol||0.12,t+0.02); g.gain.exponentialRampToValueAtTime(0.0001,t+dur);
+    o.connect(g); g.connect(c.destination); o.start(t); o.stop(t+dur+0.05);
+  },
+  play(name){
+    if(D.sound!=='on') return;
+    try{
+      this.ensure(); if(!this.ctx) return;
+      const s = {
+        tap:  ()=>this.tone(600,0,.09,'sine',.08),
+        add:  ()=>{this.tone(660,0,.1,'sine',.1);this.tone(880,.08,.14,'sine',.1);},
+        remove:()=>{this.tone(520,0,.1,'sine',.08);this.tone(390,.08,.14,'sine',.08);},
+        bell: ()=>{this.tone(988,0,.9,'triangle',.12);this.tone(784,.35,1.1,'triangle',.12);},
+        good: ()=>{[523,659,784,1047].forEach((f,i)=>this.tone(f,i*.12,.35,'triangle',.13));},
+        soft: ()=>{this.tone(440,0,.25,'sine',.09);this.tone(392,.2,.35,'sine',.09);},
+        up:   ()=>{[587,740,880,1175].forEach((f,i)=>this.tone(f,i*.1,.3,'sine',.1));},
+        end:  ()=>{[523,659,784,659,784,1047].forEach((f,i)=>this.tone(f,i*.16,.4,'triangle',.12));}
+      }[name];
+      s && s();
+    }catch(e){}
+  }
+};
+
+/* ================= SPEECH ================= */
+const Speech = {
+  ok: ('speechSynthesis' in window) && ('SpeechSynthesisUtterance' in window),
+  voices: [], token: 0,
+  init(){
+    if(!this.ok) return;
+    const ld = ()=>{ try{ this.voices = speechSynthesis.getVoices()||[]; }catch(e){} updateVoiceNote(); };
+    ld();
+    try{ speechSynthesis.addEventListener('voiceschanged', ld); }catch(e){ speechSynthesis.onvoiceschanged = ld; }
+  },
+  pick(lang){
+    const v=this.voices;
+    const tests = lang==='yue'
+      ? [/^(zh|yue)[-_]HK/i, /^yue/i, /cantonese|粵|廣東/i]
+      : [/^zh[-_]TW/i, /^zh[-_](CN|Hans)/i, /^cmn/i, /mandarin|國語|普通话/i];
+    for(const t of tests){ const f=v.find(x=>t.test(x.lang)||t.test(x.name)); if(f) return f; }
+    return null;
+  },
+  unlock(){ // must run inside a user tap (iOS)
+    if(!this.ok) return;
+    try{ const u=new SpeechSynthesisUtterance(' '); u.volume=0; speechSynthesis.speak(u); }catch(e){}
+  },
+  stop(){ this.token++; if(this.ok){ try{speechSynthesis.cancel();}catch(e){} } },
+  /* speak a list of {text,pitch}; done() always called once (even without speech support) */
+  say(parts, done){
+    const my = ++this.token;
+    if(this.ok){ try{speechSynthesis.cancel();}catch(e){} }
+    const rate = D.rate==='slow' ? 0.8 : 1.0;
+    let i=0;
+    const next = ()=>{
+      if(my!==this.token) return;
+      if(i>=parts.length){ done && done(); return; }
+      const p = parts[i++];
+      const est = 1200 + p.text.length*330/rate;
+      if(!this.ok){ setTimeout(()=>{ if(my===this.token) next(); }, est); return; }
+      let fin=false;
+      const finish = ()=>{ if(fin) return; fin=true; clearTimeout(timer); setTimeout(()=>{ if(my===this.token) next(); }, 250); };
+      const timer = setTimeout(finish, est*2 + 2500); // safety net if onend never fires
+      try{
+        const u = new SpeechSynthesisUtterance(p.text);
+        u.lang = D.lang==='yue' ? 'zh-HK' : 'zh-TW';
+        const voice = this.pick(D.lang); if(voice) u.voice = voice;
+        u.rate = rate; u.pitch = p.pitch||1;
+        u.onend = finish; u.onerror = finish;
+        speechSynthesis.speak(u);
+      }catch(e){ finish(); }
+    };
+    setTimeout(next, 60);
+  }
+};
+function updateVoiceNote(){
+  const n = $('voiceNote');
+  if(!Speech.ok){ n.hidden=false; n.textContent='這部手機不支援語音，客人說的話會用文字顯示。'; return; }
+  if(Speech.voices.length && !Speech.pick(D.lang)){
+    n.hidden=false;
+    n.textContent = D.lang==='yue' ? '這部手機找不到粵語語音，可能會用其他中文聲音讀出。' : '這部手機找不到國語語音，可能會用其他聲音讀出。';
+  } else n.hidden=true;
+}
+
+/* ================= UI HELPERS ================= */
+let toastTimer=null;
+function toast(msg){
+  const t=$('toast'); t.textContent=msg; t.classList.add('show');
+  clearTimeout(toastTimer); toastTimer=setTimeout(()=>t.classList.remove('show'),2200);
+}
+function floatText(txt, el){
+  const r = el.getBoundingClientRect();
+  const f = document.createElement('div'); f.className='float'; f.textContent=txt;
+  f.style.left = (r.left + r.width/2 - 50)+'px'; f.style.top = (r.top)+'px';
+  document.body.appendChild(f); setTimeout(()=>f.remove(),1700);
+}
+function bump(el, cls){ el.classList.remove(cls); void el.offsetWidth; el.classList.add(cls); }
+function show(id){
+  document.querySelectorAll('.screen').forEach(s=>s.classList.toggle('active', s.id===id));
+  window.scrollTo(0,0);
+}
+
+/* ================= HOME ================= */
+function renderHome(){
+  const s = streakDays();
+  const total = Object.keys(D.days).length;
+  const t = D.days[dayKey()];
+  $('streakText').innerHTML = '🏮 已連續開店 <b>'+s+'</b> 天';
+  let sub = '總共開店 '+total+' 天';
+  if(t) sub += '<br>今天最高：第 '+t.maxLevel+' 級 · 人情分 '+t.score;
+  else if(total) sub += '<br>今天還沒開店，快去開門吧！';
+  else sub = '第一天開店，加油！';
+  sub += '<br>' + (D.maxLevelEver>=UNLOCK_LEVEL ? '🔓 進階關卡已解鎖' : '🔒 升到第 '+UNLOCK_LEVEL+' 級解鎖進階關卡');
+  $('streakSub').innerHTML = sub;
+  document.querySelectorAll('.seg').forEach(seg=>{
+    const key = seg.dataset.set;
+    seg.querySelectorAll('button').forEach(b=>b.setAttribute('aria-pressed', String(D[key]===b.dataset.v)));
+  });
+  updateVoiceNote();
+}
+document.querySelectorAll('.seg').forEach(seg=>{
+  seg.addEventListener('click', e=>{
+    const b = e.target.closest('button'); if(!b) return;
+    D[seg.dataset.set] = b.dataset.v; save(); renderHome(); Sfx.play('tap');
+  });
+});
+$('testVoice').addEventListener('click', ()=>{
+  Sfx.play('tap'); Speech.unlock();
+  if(!Speech.ok){ toast('這部手機不支援語音'); return; }
+  Speech.say([{text:T[D.lang].test,pitch:1.1}]);
+});
+
+/* ================= GAME STATE ================= */
+let G = null;   // current game
+let R = null;   // current round
+
+function startGame(){
+  Speech.unlock(); Sfx.ensure(); Sfx.play('tap');
+  const td = today(); td.games++; td.maxLevel = Math.max(td.maxLevel, D.level); save();
+  G = {round:0, score:0, firstTry:0, startLevel:D.level, maxLevel:D.level, lastPeople:[], usedPeople:[], visits:[], specials:0, twins:0, levelUps:0};
+  show('game');
+  nextRound();
+}
+
+function makeOrder(n,q){
+  const ids = shuffle(ITEMS.map(i=>i.id)).slice(0,n);
+  const order = ids.map(id=>({id, q: q>1 ? rand(1,q) : 1}));
+  if(q>1 && order.every(o=>o.q===1)) order[rand(0,n-1)].q = rand(2,q);
+  return order;
+}
+function pickPerson(){
+  const pool = PEOPLE.filter(p=>!G.usedPeople.includes(p.id));
+  const p = pickOne(pool.length?pool:PEOPLE);
+  G.usedPeople.push(p.id);
+  return p;
+}
+function orderLines(order){ return [fill(pickOne(T[D.lang].greet), {L:listPhrase(order)})]; }
+
+function advancedOn(){ return D.maxLevelEver>=UNLOCK_LEVEL && D.level>=UNLOCK_LEVEL; }
+function freshOrder(n,q){
+  const sig = o => o.map(x=>x.id).sort().join();
+  let order = makeOrder(n,q), tries = 0;
+  while(G.lastSig && sig(order)===G.lastSig && tries++<10) order = makeOrder(n,q);
+  G.lastSig = sig(order);
+  return order;
+}
+function chooseType(){
+  if(!advancedOn() || G.round<2) return 'normal';
+  const back = G.visits.filter(v=>!v.returned && G.round-v.round>=2 && v.order.length<=3);
+  const opts = [];
+  if(back.length) opts.push('regular','regular');
+  if(D.level>=6 && G.twins<1) opts.push('twin');
+  opts.push('change');
+  if(G.specials===0 && G.round>=4) return pickOne(opts);   // at least one special per game
+  return Math.random()<0.55 ? pickOne(opts) : 'normal';
+}
+function makeRound(){
+  const L = LEVELS[D.level];
+  const type = chooseType();
+  const base = {type, level:D.level, active:0, attempts:0, phase:'listen', timer:null, droppedThisRound:false};
+  const lg = T[D.lang];
+  if(type!=='normal') G.specials++;
+
+  if(type==='regular'){
+    const v = pickOne(G.visits.filter(x=>!x.returned && G.round-x.round>=2 && x.order.length<=3));
+    v.returned = true;
+    return Object.assign(base, {customers:[{p:v.p, order:v.order, lines:[pickOne(lg.regular)],
+      reveal:[fill(lg.lastTime,{L:listPhrase(v.order)})]}], baskets:[{}]});
+  }
+  if(type==='twin'){
+    G.twins++;
+    const n = Math.max(1, Math.ceil(L.n/2));
+    const cs = [0,1].map(()=>{ const p=pickPerson(); const order=freshOrder(n, Math.min(L.q,2)); return {p, order, lines:orderLines(order)}; });
+    return Object.assign(base, {customers:cs, baskets:[{},{}]});
+  }
+  const p = pickPerson();
+  if(type==='change'){
+    const n = Math.max(2, L.n-1);
+    const first = freshOrder(n, L.q);
+    const out = pickOne(first);
+    const inId = pickOne(ITEMS.filter(i=>!first.some(o=>o.id===i.id))).id;
+    const inQ = L.q>1 ? rand(1,L.q) : 1;
+    const order = first.filter(o=>o!==out).concat([{id:inId, q:inQ}]);
+    const lines = orderLines(first).concat([fill(pickOne(lg.change), {A:ITEM[out.id].name, P:qtyPhrase(inId,inQ), B:ITEM[inId].name})]);
+    G.visits.push({p, order, round:G.round});
+    return Object.assign(base, {customers:[{p, order, lines}], baskets:[{}]});
+  }
+  const order = freshOrder(L.n, L.q);
+  G.visits.push({p, order, round:G.round});
+  return Object.assign(base, {customers:[{p, order, lines:orderLines(order)}], baskets:[{}]});
+}
+
+function nextRound(){
+  G.round++;
+  if(G.round>ROUNDS){ endGame(); return; }
+  R = makeRound();
+  $('roundPill').textContent = '第 '+G.round+' / '+ROUNDS+(R.type==='twin'?' 組':' 位');
+  $('scorePill').textContent = '❤️ '+G.score;
+  $('nextBtn').hidden = true; $('actions').hidden = false;
+  $('counter').classList.toggle('twin', R.customers.length>1);
+  renderCustomers(true);
+  renderShelf(); renderBasket();
+  setPhase('enter');
+  $('bubble').innerHTML = '<p class="hidden-msg">叮噹～有客人來了！</p>';
+  Sfx.play('bell');
+  if(R.type==='twin') toast('👥 兩位客人一起來，要分開記！');
+  if(R.type==='regular') toast('😊 熟客 '+R.customers[0].p.name+' 又來了！');
+  R.timer = setTimeout(()=>speakOrder(false), R.type==='normal'||R.type==='change' ? 1300 : 2200);
+}
+
+function renderCustomers(walkin){
+  $('custBox').innerHTML = R.customers.map((c,i)=>
+    '<div class="cust'+(walkin?' walkin':'')+'" data-i="'+i+'"><div class="face" aria-hidden="true">'+c.p.face+'</div><div class="cname">'+esc(c.p.name)+'</div></div>'
+  ).join('');
+}
+function custEl(i){ return $('custBox').querySelector('.cust[data-i="'+i+'"]'); }
+
+function orderHTML(reveal){
+  const multi = R.customers.length>1;
+  return R.customers.map(c=>(reveal&&c.reveal||c.lines).map((l,j)=>'<p>'+(multi&&j===0?'<span class="who">'+esc(c.p.name)+'：</span>':'')+esc(l)+'</p>').join('')).join('');
+}
+function speechParts(reveal){
+  const parts=[];
+  R.customers.forEach(c=>{ (reveal&&c.reveal||c.lines).forEach(t=>parts.push({text:t,pitch:c.p.pitch})); });
+  return parts;
+}
+
+/* phases: enter → listen (text shown, shelf locked) → pick (text hidden) → done */
+function setPhase(ph){
+  R.phase = ph;
+  const locked = (ph==='enter' || ph==='listen');
+  $('shelfWrap').classList.toggle('locked', locked);
+  $('counter').classList.toggle('compact', ph==='pick' || ph==='done');
+  $('lockMsg').textContent = ph==='done' ? '' : '👂 請先聽客人說完';
+  $('readyBtn').hidden = !(ph==='listen');
+  $('replayBtn').disabled = (ph==='enter' || ph==='done');
+  $('payBtn').disabled = (ph!=='pick');
+  $('clearBtn').disabled = (ph!=='pick');
+}
+
+function speakOrder(isReplay, prefixLine){
+  clearTimeout(R.timer);
+  setPhase('listen');
+  const reveal = !!prefixLine;   // a full repeat after several tries spells out a regular's order
+  let html = orderHTML(reveal);
+  let parts = speechParts(reveal);
+  if(prefixLine){
+    html = '<p class="hint">'+esc(prefixLine)+'</p>' + html;
+    parts.unshift({text:prefixLine, pitch:R.customers[0].p.pitch});
+  }
+  $('bubble').innerHTML = html;
+  const chars = parts.reduce((a,p)=>a+p.text.length,0);
+  Speech.say(parts, ()=>{
+    if(!R || R.phase!=='listen') return;
+    // leave the words up a little longer so they can be read, then hide
+    const readMs = Speech.ok ? 1500 + chars*90 : 2500 + chars*220;
+    R.timer = setTimeout(hideOrder, readMs);
+  });
+}
+function hideOrder(){
+  if(!R || R.phase!=='listen') return;
+  clearTimeout(R.timer); Speech.stop();
+  $('bubble').innerHTML = '<p class="hidden-msg">清單收起來了，請拿貨。</p>';
+  setPhase('pick');
+}
+
+/* ================= SHELF & BASKET ================= */
+function basket(){ return R.baskets[R.active]; }
+function renderShelf(){
+  const b = basket();
+  $('shelf').innerHTML = ITEMS.map(it=>{
+    const q = b[it.id]||0;
+    return '<button class="tile'+(q?' has':'')+'" data-id="'+it.id+'" aria-label="'+it.name+(q?'，已拿 '+q:'')+'">'+
+      '<span class="ic">'+iconHTML(it)+'</span><span class="nm">'+it.name+'</span>'+
+      (q?'<span class="badge">'+q+'</span>':'')+'</button>';
+  }).join('');
+}
+function renderBasket(){
+  const multi = R.baskets.length>1;
+  const tabs = $('btabs');
+  tabs.hidden = !multi;
+  if(multi){
+    tabs.innerHTML = R.customers.map((c,i)=>'<button data-i="'+i+'" aria-pressed="'+(i===R.active)+'">'+c.p.face+' 幫'+esc(c.p.name)+'拿</button>').join('');
+    R.customers.forEach((c,i)=>{ const el=custEl(i); el && el.classList.toggle('active-target', i===R.active); });
+  }
+  $('basketTitle').textContent = multi ? '🧺 '+R.customers[R.active].p.name+'：' : '🧺 籃子：';
+  const n = Object.keys(basket()).length;
+  $('chips').innerHTML = n ? '已放 <b>'+n+'</b> 樣貨品' : '<span class="empty">空的，點貨品放進來</span>';
+}
+function setQty(id,q){
+  const b = basket();
+  const had = b[id]||0;
+  if(q>0) b[id]=q; else delete b[id];
+  renderShelf(); renderBasket();
+  const tile = $('shelf').querySelector('[data-id="'+id+'"]');
+  if(tile) bump(tile,'pop');
+  if(q>0){ Sfx.play('add'); toast('✔ '+ITEM[id].name+' ×'+q); }
+  else if(had){ Sfx.play('remove'); toast(ITEM[id].name+' 放回貨架了'); }
+}
+
+$('shelf').addEventListener('click', e=>{
+  const t = e.target.closest('.tile'); if(!t || !R) return;
+  if(R.phase!=='pick'){ Sfx.play('tap'); toast(R.phase==='done'?'請按「下一位客人」':'請先聽客人說完'); return; }
+  openPicker(t.dataset.id);
+});
+$('btabs').addEventListener('click', e=>{
+  const b = e.target.closest('button'); if(!b || !R) return;
+  R.active = +b.dataset.i; Sfx.play('tap');
+  renderShelf(); renderBasket();
+  toast('現在幫 '+R.customers[R.active].p.name+' 拿貨');
+});
+
+/* ---- quantity picker ---- */
+let pkId = null;
+function openPicker(id){
+  Sfx.play('tap');
+  pkId = id;
+  const it = ITEM[id], cur = basket()[id]||0;
+  $('pkIcon').innerHTML = iconHTML(it);
+  $('pkTitle').textContent = it.name+' 要幾'+unit(id)+'？';
+  $('pkGrid').innerHTML = [1,2,3,4,5,6].map(n=>'<button data-q="'+n+'" aria-pressed="'+(n===cur)+'">'+n+'</button>').join('');
+  $('pkZero').hidden = !cur;
+  $('picker').classList.add('show');
+}
+function closePicker(){ $('picker').classList.remove('show'); pkId=null; }
+$('pkGrid').addEventListener('click', e=>{
+  const b = e.target.closest('button'); if(!b || !pkId) return;
+  const id=pkId; closePicker(); setQty(id, +b.dataset.q);
+});
+$('pkZero').addEventListener('click', ()=>{ const id=pkId; closePicker(); if(id) setQty(id,0); });
+$('pkCancel').addEventListener('click', ()=>{ Sfx.play('tap'); closePicker(); });
+$('picker').addEventListener('click', e=>{ if(e.target.id==='picker'){ closePicker(); } });
+
+/* ================= CHECKOUT ================= */
+function diff(order, b){
+  for(const o of order){ if(!b[o.id]) return {kind:'missing', id:o.id, q:o.q}; }
+  for(const o of order){ if(b[o.id]!==o.q) return {kind:'qty', id:o.id, q:o.q}; }
+  for(const id of Object.keys(b)){ if(!order.some(o=>o.id===id)) return {kind:'extra', id}; }
+  return null;
+}
+function checkout(){
+  if(!R || R.phase!=='pick') return;
+  if(R.baskets.every(b=>!Object.keys(b).length)){
+    Sfx.play('soft');
+    $('bubble').innerHTML = '<p class="hint">'+esc(T[D.lang].empty)+'</p>';
+    Speech.say([{text:T[D.lang].empty, pitch:R.customers[0].p.pitch}]);
+    return;
+  }
+  let wrongIdx=-1, d=null;
+  for(let i=0;i<R.customers.length;i++){ d = diff(R.customers[i].order, R.baskets[i]); if(d){ wrongIdx=i; break; } }
+  if(!d) onSuccess(); else onWrong(wrongIdx, d);
+}
+$('payBtn').addEventListener('click', checkout);
+$('clearBtn').addEventListener('click', ()=>{
+  if(!R || R.phase!=='pick') return;
+  if(!Object.keys(basket()).length){ Sfx.play('tap'); return; }
+  R.baskets[R.active] = {}; renderShelf(); renderBasket(); Sfx.play('remove'); toast('籃子清空了');
+});
+
+function onSuccess(){
+  clearTimeout(R.timer);
+  setPhase('done');
+  const first = R.attempts===0;
+  const nItems = R.customers.reduce((a,c)=>a+c.order.length,0);
+  const pts = nItems*10 + (first?10:0);
+  G.score += pts;
+  if(first) G.firstTry++;
+  const L = T[D.lang];
+  const line = pickOne(first?L.thanks:L.thanksRetry);
+  $('bubble').innerHTML = '<p class="good">'+esc(line)+'</p><p>❤️ 人情分 +'+pts+(first?'（一次就對！）':'')+'</p>';
+  R.customers.forEach((c,i)=>{ const el=custEl(i); el && bump(el,'happy'); });
+  Sfx.play('good');
+  floatText('❤️ +'+pts, $('scorePill'));
+  $('scorePill').textContent = '❤️ '+G.score;
+  Speech.say([{text:line, pitch:R.customers[0].p.pitch}]);
+
+  // difficulty: 3 first-try successes in a row → harder
+  D.streakWrong = 0;
+  if(first){
+    D.streakRight++;
+    if(D.streakRight>=3){
+      D.streakRight = 0;
+      if(D.level<MAXL){
+        D.level++; G.levelUps++;
+        setTimeout(()=>{ Sfx.play('up'); toast('🎊 生意越來越好！客人會買多一點了'); }, 1400);
+      }
+    }
+  } else D.streakRight = 0;
+  trackLevel();
+
+  $('actions').hidden = true;
+  $('nextBtn').hidden = false;
+  $('nextBtn').textContent = G.round>=ROUNDS ? '今天收舖 🌙' : '下一位客人 ▶';
+}
+
+function onWrong(i, d){
+  R.attempts++;
+  const L = T[D.lang], c = R.customers[i];
+  const N = ITEM[d.id].name, P = d.q ? qtyPhrase(d.id,d.q) : '';
+  let hint;
+  if(d.kind==='missing') hint = fill(R.attempts>=2?L.missing2:L.missing, {N,P});
+  else if(d.kind==='qty') hint = fill(R.attempts>=2?L.qty2:L.qty, {N,P});
+  else hint = fill(L.extra, {N});
+  if(R.customers.length>1) hint = c.p.name+'：'+hint;
+
+  // difficulty: 2 wrong checkouts in a row → easier (at most once per customer)
+  D.streakRight = 0; D.streakWrong++;
+  if(D.streakWrong>=2){
+    D.streakWrong = 0;
+    if(D.level>1 && !R.droppedThisRound){ D.level--; R.droppedThisRound=true; }
+  }
+  save();
+
+  Sfx.play('soft');
+  bump($('basket'),'shake');
+  const el = custEl(i); el && bump(el,'puzzled');
+  if(R.customers.length>1 && R.active!==i){ R.active=i; renderShelf(); renderBasket(); }
+
+  if(R.attempts>=3){
+    // after a few tries the customer kindly repeats the whole order
+    speakOrder(true, hint+L.comfort+(R.type==='regular'?'':L.repeat));
+    return;
+  }
+  $('bubble').innerHTML = '<p class="hint">'+esc(hint)+'</p><p>'+esc(L.comfort)+'</p>';
+  Speech.say([{text:hint+L.comfort, pitch:c.p.pitch}]);
+}
+
+function trackLevel(){
+  if(D.maxLevelEver<UNLOCK_LEVEL && D.level>=UNLOCK_LEVEL) setTimeout(()=>{ Sfx.play('up'); toast('🔓 解鎖進階關卡：客人會改口、兩人同時點單、熟客「跟上次一樣」！'); }, 3800);
+  G.maxLevel = Math.max(G.maxLevel, D.level);
+  D.maxLevelEver = Math.max(D.maxLevelEver, D.level);
+  const td = today(); td.maxLevel = Math.max(td.maxLevel, D.level);
+  save();
+}
+
+$('nextBtn').addEventListener('click', ()=>{
+  if(!R || R.phase!=='done') return;
+  Sfx.play('tap'); Speech.stop();
+  $('nextBtn').hidden = true;
+  $('custBox').querySelectorAll('.cust').forEach(el=>el.classList.add('walkout'));
+  setTimeout(nextRound, 600);
+});
+$('replayBtn').addEventListener('click', ()=>{
+  if(!R || R.phase==='enter' || R.phase==='done') return;
+  Sfx.play('tap'); Speech.unlock();
+  speakOrder(true);
+});
+$('readyBtn').addEventListener('click', ()=>{ if(!R) return; Sfx.play('tap'); hideOrder(); });
+
+/* ================= END ================= */
+function endGame(){
+  Speech.stop();
+  const td = today(); td.score += G.score; D.totalScore += G.score; trackLevel();
+  const s = streakDays();
+  const f = G.firstTry;
+  let icon='🎉', title='辛苦了，老闆！', msg;
+  if(f>=5){ icon='🏆'; title='太厲害了！'; msg='五位客人都一次就拿對，老街第一好記性！'; }
+  else if(f>=3){ icon='🌟'; title='做得很好！'; msg='街坊們都說你的店最可靠，大家都很滿意。'; }
+  else if(f>=1){ icon='😊'; title='今天辛苦了！'; msg='每位客人最後都買齊了東西。每天練習，記性會越來越好！'; }
+  else { icon='🍵'; title='今天辛苦了！'; msg='每位客人都買到東西了，慢慢來，明天再見！'; }
+  $('endIcon').textContent = icon; $('endTitle').textContent = title;
+  $('endMsg').textContent = msg + '　已連續開店 '+s+' 天，明天記得再來開店哦！';
+  $('endStats').innerHTML = [
+    ['服務客人', ROUNDS+' 位'],
+    ['一次就拿對', f+' 位'],
+    ['今局人情分', '❤️ '+G.score],
+    ['今天最高難度', '第 '+td.maxLevel+' 級'],
+    ...(G.specials ? [['進階挑戰', G.specials+' 次']] : []),
+    ['下次開店難度', '第 '+D.level+' 級'],
+    ['已連續開店', s+' 天']
+  ].map(r=>'<li><span>'+r[0]+'</span><b>'+r[1]+'</b></li>').join('');
+  show('end');
+  Sfx.play('end');
+  R = null;
+}
+
+/* ================= NAV ================= */
+$('openBtn').addEventListener('click', startGame);
+$('againBtn').addEventListener('click', startGame);
+$('backBtn').addEventListener('click', ()=>{ Sfx.play('tap'); renderHome(); show('home'); });
+$('homeBtn').addEventListener('click', ()=>{ Sfx.play('tap'); $('leaveModal').classList.add('show'); });
+$('leaveNo').addEventListener('click', ()=>{ Sfx.play('tap'); $('leaveModal').classList.remove('show'); });
+$('leaveYes').addEventListener('click', ()=>{
+  $('leaveModal').classList.remove('show'); Speech.stop();
+  if(R) clearTimeout(R.timer);
+  if(G){ const td=today(); td.score+=G.score; D.totalScore+=G.score; save(); }
+  G=null; R=null; renderHome(); show('home');
+});
+document.addEventListener('visibilitychange', ()=>{ if(document.hidden) Speech.stop(); });
+
+Speech.init();
+renderHome();
+window.__oss = { get G(){return G;}, get R(){return R;}, D };
+})();
+</script>
+</body>
+</html>
