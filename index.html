@@ -162,6 +162,11 @@ button:disabled{cursor:default}
 .stats{list-style:none;padding:0;margin:0;text-align:left}
 .stats li{display:flex;justify-content:space-between;gap:10px;padding:10px 4px;border-bottom:2px dotted var(--line);font-size:23px}
 .stats li b{color:var(--red-dark)}
+/* ---------- change-making ---------- */
+.chq{font-size:24px;margin:0 0 14px;font-weight:700;line-height:1.6}
+.chq b{color:var(--red-dark);font-size:30px}
+.chfb{min-height:32px;margin:0;font-size:22px;font-weight:700;color:var(--orange)}
+.bubble .count{font-size:20px;color:var(--orange);font-weight:700}
 /* ---------- fun extras ---------- */
 .topbar{background:repeating-linear-gradient(90deg,#c4302a 0 26px,#fff3dc 26px 52px);border:3px solid var(--wood-dark);border-radius:14px;padding:5px}
 .cust{position:relative}
@@ -210,6 +215,8 @@ button:disabled{cursor:default}
       <div class="seg" data-set="rate"><button data-v="slow">慢一点</button><button data-v="normal">正常</button></div></div>
     <div class="setrow"><span class="lbl">提示音效：</span>
       <div class="seg" data-set="sound"><button data-v="on">开</button><button data-v="off">关</button></div></div>
+    <div class="setrow"><span class="lbl">重听时：</span>
+      <div class="seg" data-set="replayText"><button data-v="off">只听声音</button><button data-v="on">也显示文字</button></div></div>
     <button class="btn btn-paper" id="testVoice" style="width:100%;margin-top:6px">🔊 试听客人声音</button>
     <p class="note" id="voiceNote" hidden></p>
   </div>
@@ -219,7 +226,8 @@ button:disabled{cursor:default}
       <li>客人说完，清单会收起来。</li>
       <li>点货架上的货品，选好数量。</li>
       <li>拿齐了就按「结账」。</li>
-      <li>没有时间限制，听不清楚可以按「再听一次」。</li>
+      <li>没有时间限制，听不清楚可以按「再听一次」（重听不扣分，但没有「一次就对」奖励）。</li>
+      <li>生意好了以后，拿货前要先帮客人找零钱。</li>
       <li>赚到的人情分可以换来小店装饰。</li>
       <li>头上有 ⭐ 的是熟客，记住他买的东西，等一下他会再来说「跟上次一样」。</li>
     </ol>
@@ -283,6 +291,17 @@ button:disabled{cursor:default}
       <button class="btn btn-paper" id="pkZero">放回货架</button>
       <button class="btn btn-wood" id="pkCancel">取消</button>
     </div>
+  </div>
+</div>
+
+<!-- give change (a short distraction before picking) -->
+<div class="modal" id="changeModal" role="dialog" aria-modal="true" aria-labelledby="chTitle">
+  <div class="sheet">
+    <div class="bigic">💰</div>
+    <h3 id="chTitle"></h3>
+    <p class="chq" id="chQ"></p>
+    <div class="qgrid" id="chGrid"></div>
+    <p class="chfb" id="chFb" aria-live="polite"></p>
   </div>
 </div>
 
@@ -394,7 +413,7 @@ function dayKey(d){ d=d||new Date(); return d.getFullYear()+'-'+String(d.getMont
 
 /* ================= STORAGE ================= */
 const KEY = 'laojie-memory-store-v1';
-function defaults(){ return {lang:'cmn',rate:'slow',sound:'on',level:1,streakRight:0,streakWrong:0,maxLevelEver:1,days:{},totalScore:0}; }
+function defaults(){ return {lang:'cmn',rate:'slow',sound:'on',replayText:'off',level:1,streakRight:0,streakWrong:0,maxLevelEver:1,days:{},totalScore:0}; }
 function load(){ try{ const s = JSON.parse(localStorage.getItem(KEY)||'null'); return Object.assign(defaults(), s||{}); }catch(e){ return defaults(); } }
 function save(){ try{ localStorage.setItem(KEY, JSON.stringify(D)); }catch(e){} }
 const D = load();
@@ -628,7 +647,9 @@ function chooseType(){
 function makeRound(){
   const L = LEVELS[D.level];
   const type = chooseType();
-  const base = {type, level:D.level, active:0, attempts:0, phase:'listen', timer:null, droppedThisRound:false};
+  const base = {type, level:D.level, active:0, attempts:0, replays:0, heard:false, phase:'listen', timer:null, droppedThisRound:false,
+    // from level 4: before picking, give the customer change (puts a gap between hearing and recalling)
+    needChange: D.level>=4 && (type==='normal' || type==='change') && Math.random()<0.6, changeDone:false};
   const lg = T[D.lang];
   if(type!=='normal') G.specials++;
 
@@ -705,12 +726,13 @@ function speechParts(reveal){
 /* phases: enter → listen (text shown, shelf locked) → pick (text hidden) → done */
 function setPhase(ph){
   R.phase = ph;
-  const locked = (ph==='enter' || ph==='listen');
+  const locked = (ph==='enter' || ph==='listen' || ph==='change');
   $('shelfWrap').classList.toggle('locked', locked);
   $('counter').classList.toggle('compact', ph==='pick' || ph==='done');
-  $('lockMsg').textContent = ph==='done' ? '' : '👂 请先听客人说完';
+  $('lockMsg').textContent = ph==='change' ? '💰 先找零钱' : ph==='done' ? '' : '👂 请先听客人说完';
+  $('counter').classList.toggle('compact', ph==='pick' || ph==='done' || ph==='change');
   $('readyBtn').hidden = !(ph==='listen');
-  $('replayBtn').disabled = (ph==='enter' || ph==='done');
+  $('replayBtn').disabled = (ph==='enter' || ph==='done' || ph==='change');
   $('payBtn').disabled = (ph!=='pick');
   $('clearBtn').disabled = (ph!=='pick');
 }
@@ -725,21 +747,57 @@ function speakOrder(isReplay, prefixLine){
     html = '<p class="hint">'+esc(prefixLine)+'</p>' + html;
     parts.unshift({text:prefixLine, pitch:R.customers[0].p.pitch});
   }
-  $('bubble').innerHTML = html;
+  const voiceOnly = isReplay && !prefixLine && Speech.ok && D.replayText!=='on';
+  $('bubble').innerHTML = voiceOnly ? '<p class="hidden-msg">🔊 客人再说一次，请用心听……</p>' : html;
   const chars = parts.reduce((a,p)=>a+p.text.length,0);
   Speech.say(parts, ()=>{
     if(!R || R.phase!=='listen') return;
-    // leave the words up a little longer so they can be read, then hide
-    const readMs = Speech.ok ? 1500 + chars*90 : 2500 + chars*220;
+    // leave the words up a little to read, then hide; the higher the level, the sooner they go
+    const f = Math.max(0.3, 1 - (R.level-1)*0.1);
+    const readMs = voiceOnly ? 800 : (Speech.ok ? 600 + (900 + chars*90)*f : 2500 + chars*220*f);
     R.timer = setTimeout(hideOrder, readMs);
   });
 }
 function hideOrder(){
   if(!R || R.phase!=='listen') return;
   clearTimeout(R.timer); Speech.stop();
-  $('bubble').innerHTML = '<p class="hidden-msg">清单收起来了，请拿货。</p>';
+  R.heard = true;
+  if(R.needChange && !R.changeDone){ openChange(); return; }
+  showPickMsg();
   setPhase('pick');
 }
+function showPickMsg(){
+  $('bubble').innerHTML = '<p class="hidden-msg">清单收起来了，请拿货。</p>' +
+    (R.replays ? '<p class="count">已重听 '+R.replays+' 次</p>' : '');
+}
+
+/* ---- give change ---- */
+function openChange(){
+  setPhase('change');
+  const price = rand(2,9), paid = price<=4 && Math.random()<0.5 ? 5 : 10, ans = paid-price;
+  const opts = [ans].concat(shuffle([ans-1, ans+1, ans+2, ans-2].filter(n=>n>=1)).slice(0,2));
+  R.change = {price, paid, ans};
+  const name = R.customers[0].p.name;
+  $('bubble').innerHTML = '<p>老板，先给你钱。</p>';
+  $('chTitle').textContent = '找零钱';
+  $('chQ').innerHTML = '东西一共 <b>'+price+'</b> 元<br>'+esc(name)+'给了你 <b>'+paid+'</b> 元<br>要找回多少元？';
+  $('chGrid').innerHTML = shuffle(opts).map(n=>'<button data-v="'+n+'">'+n+' 元</button>').join('');
+  $('chFb').textContent = '';
+  $('changeModal').classList.add('show');
+  Speech.say([{text:'老板，先给你钱。一共'+price+'元，我给你'+paid+'元。', pitch:R.customers[0].p.pitch}]);
+}
+$('chGrid').addEventListener('click', e=>{
+  const b = e.target.closest('button'); if(!b || !R || R.phase!=='change') return;
+  if(+b.dataset.v===R.change.ans){
+    Sfx.play('coin'); R.changeDone = true;
+    $('changeModal').classList.remove('show');
+    toast('💰 找对了！现在去拿货吧');
+    Speech.stop(); showPickMsg(); setPhase('pick');
+  } else {
+    Sfx.play('soft'); b.disabled = true;
+    $('chFb').textContent = '再算算看：'+R.change.paid+' 减 '+R.change.price+' 是多少？';
+  }
+});
 
 /* ================= SHELF & BASKET ================= */
 function basket(){ return R.baskets[R.active]; }
@@ -837,14 +895,14 @@ $('clearBtn').addEventListener('click', ()=>{
 function onSuccess(){
   clearTimeout(R.timer);
   setPhase('done');
-  const first = R.attempts===0;
+  const first = R.attempts===0 && R.replays===0;
   const nItems = R.customers.reduce((a,c)=>a+c.order.length,0);
   if(first){ G.firstTry++; G.combo++; G.bestCombo=Math.max(G.bestCombo,G.combo); } else G.combo = 0;
   const bonus = G.combo>=2 ? G.combo*5 : 0;
   const pts = nItems*10 + (first?10:0) + bonus;
   G.score += pts;
   const L = T[D.lang];
-  const line = pickOne(first?L.thanks:L.thanksRetry);
+  const line = pickOne(R.attempts===0?L.thanks:L.thanksRetry);
   const chat = CHAT[pickOne(R.customers[0].order).id];
   $('bubble').innerHTML = '<p class="good">'+esc(line)+'</p><p class="chat">'+esc(chat)+'</p>';
   R.customers.forEach((c,i)=>{ const el=custEl(i); if(el){ bump(el,'happy'); burst(el.querySelector('.face')); } });
@@ -921,8 +979,12 @@ $('nextBtn').addEventListener('click', ()=>{
   setTimeout(nextRound, 600);
 });
 $('replayBtn').addEventListener('click', ()=>{
-  if(!R || R.phase==='enter' || R.phase==='done') return;
+  if(!R || R.phase==='enter' || R.phase==='done' || R.phase==='change') return;
   Sfx.play('tap'); Speech.unlock();
+  if(R.heard){
+    R.replays++;
+    if(!G.replayTipShown){ G.replayTipShown = true; toast('重听不扣分，但没有「一次就对」奖励哦', 3000); }
+  }
   speakOrder(true);
 });
 $('readyBtn').addEventListener('click', ()=>{ if(!R) return; Sfx.play('tap'); hideOrder(); });
