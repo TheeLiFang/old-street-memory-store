@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#7a4a22">
-<meta name="description" content="老街记忆店：给长辈的怀旧杂货店记忆力训练游戏">
+<meta name="description" content="老街记忆店：怀旧杂货主题的记忆力小游戏，老少咸宜">
 <title>老街记忆店</title>
 <style>
 :root{
@@ -190,6 +190,21 @@ button:disabled{cursor:default}
 .fdone h2{margin:4px 0;font-size:32px;color:var(--red-dark)}
 .fdone p{font-size:23px;margin:6px 0}
 .fdone .btn{margin-top:10px}
+/* ---------- leaderboard ---------- */
+.lbtabs{display:flex;gap:8px}
+.lbtabs button{flex:1;min-height:60px;border-radius:14px;border:3px solid var(--wood);background:#fff;font-size:22px;font-weight:800}
+.lbtabs button[aria-pressed="true"]{background:var(--wood);color:#fff}
+.lblist{list-style:none;margin:0;padding:0}
+.lblist li{display:flex;align-items:center;gap:10px;padding:10px 6px;border-bottom:2px dotted var(--line);font-size:22px}
+.lblist li.me{background:#fff0c8;border-radius:10px}
+.lblist .rk{width:2.2em;text-align:center;font-weight:900;color:var(--muted)}
+.lblist .nm{flex:1;font-weight:800;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.lblist .lv{font-size:20px;color:var(--muted)}
+.lblist b{color:var(--red-dark);min-width:3em;text-align:right}
+.lbstate{text-align:center;color:var(--muted);font-size:22px;padding:14px 0}
+.lbres{margin:10px 0 0;font-size:23px;font-weight:800;color:var(--red-dark)}
+.lbres .btn{width:100%;margin-top:8px;font-size:22px}
+.nameinput{width:100%;min-height:64px;font:inherit;font-size:26px;border:3px solid var(--wood);border-radius:14px;padding:6px 14px;margin-bottom:12px;text-align:center;-webkit-user-select:text;user-select:text;background:#fff;color:var(--ink)}
 /* ---------- change-making ---------- */
 .chq{font-size:24px;margin:0 0 14px;font-weight:700;line-height:1.6}
 .chq b{color:var(--red-dark);font-size:30px}
@@ -234,6 +249,7 @@ button:disabled{cursor:default}
   </div>
   <button class="btn btn-red btn-big mode" id="flipBtn"><span>🃏 翻牌配对</span><small>翻开两张一样的 · 最简单</small></button>
   <button class="btn btn-wood btn-big mode" id="openBtn"><span>🏪 杂货店点单</span><small>听客人说，记住拿货 · 挑战</small></button>
+  <button class="btn btn-paper btn-big" id="lbBtn">🏆 排行榜</button>
   <div class="card">
     <h3 class="ctitle">🏮 我的小店装饰</h3>
     <div class="decor" id="decorGrid"></div>
@@ -306,14 +322,29 @@ button:disabled{cursor:default}
     <h2 id="fDoneTitle"></h2>
     <p id="fDoneMsg"></p>
     <div id="fDecor"></div>
+    <div class="lbres" id="fRank" hidden></div>
     <div class="talk" id="fTalk">
       <small>💬 一起聊一聊</small>
       <div class="q" id="fTalkQ"></div>
       <button class="btn btn-paper" id="fTalkNext">换一个话题</button>
     </div>
-    <button class="btn btn-green btn-big" id="fShare">📤 告诉家人</button>
     <button class="btn btn-red btn-big" id="fNext">🃏 再玩一局</button>
     <button class="btn btn-paper btn-big" id="fBack">🏠 回首页</button>
+  </div>
+</section>
+
+<!-- ============ LEADERBOARD ============ -->
+<section id="lb" class="screen" aria-label="排行榜">
+  <div class="topbar">
+    <button class="btn btn-paper home" id="lbHome" aria-label="回首页">🏠 首页</button>
+    <span class="pill">🏆 排行榜</span>
+  </div>
+  <div class="lbtabs" id="lbMode"><button data-v="flip">🃏 翻牌配对</button><button data-v="shop">🏪 杂货店</button></div>
+  <div class="lbtabs" id="lbRange"><button data-v="week">本周</button><button data-v="all">总榜</button></div>
+  <div class="card"><ol class="lblist" id="lbList"></ol></div>
+  <div class="card" style="text-align:center">
+    <div id="lbMe" style="font-size:22px;font-weight:700"></div>
+    <button class="btn btn-paper" id="lbRename" style="width:100%;margin-top:8px">✏️ 改名字</button>
   </div>
 </section>
 
@@ -326,11 +357,24 @@ button:disabled{cursor:default}
     <p class="msg" id="endMsg"></p>
   </div>
   <div class="card newdecor" id="endDecor" hidden></div>
+  <div class="card lbres" id="endRank" hidden></div>
   <div class="card"><ul class="stats" id="endStats"></ul></div>
-  <button class="btn btn-green btn-big" id="endShare">📤 告诉家人</button>
   <button class="btn btn-red btn-big" id="againBtn">🔁 再开一局</button>
   <button class="btn btn-paper btn-big" id="backBtn">🏠 返回首页</button>
 </section>
+
+<!-- nickname for the leaderboard -->
+<div class="modal" id="nameModal" role="dialog" aria-modal="true" aria-labelledby="nmTitle">
+  <div class="sheet">
+    <div class="bigic">🏆</div>
+    <h3 id="nmTitle">排行榜上用什么名字？</h3>
+    <input class="nameinput" id="nameInput" maxlength="12" placeholder="例如：王奶奶" autocomplete="nickname">
+    <div class="row2">
+      <button class="btn btn-red" id="nameOk">确定</button>
+      <button class="btn btn-wood" id="nameCancel">先不要</button>
+    </div>
+  </div>
+</div>
 
 <!-- confirm leave -->
 <div class="modal" id="leaveModal" role="dialog" aria-modal="true">
@@ -449,12 +493,18 @@ function listPhrase(order){
 function dayKey(d){ d=d||new Date(); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
 
 /* ================= STORAGE ================= */
+/* ===== Online leaderboard (Supabase). Fill in both to turn it on; see supabase-setup.sql ===== */
+const LB_URL = '';   // e.g. 'https://abcd1234.supabase.co'
+const LB_KEY = '';   // the project's public key (anon / publishable) — safe to put in the page
+const LB_ON = !!(LB_URL && LB_KEY);
+
 const KEY = 'laojie-memory-store-v1';
 function defaults(){ return {lang:'cmn',rate:'slow',sound:'on',replayText:'off',level:1,flipLevel:1,streakRight:0,streakWrong:0,maxLevelEver:1,days:{},totalScore:0}; }
 function load(){ try{ const s = JSON.parse(localStorage.getItem(KEY)||'null'); return Object.assign(defaults(), s||{}); }catch(e){ return defaults(); } }
 function save(){ try{ localStorage.setItem(KEY, JSON.stringify(D)); }catch(e){} }
 const D = load();
 D.lang = 'cmn';   // Mandarin only
+if(!D.deviceId){ D.deviceId = (window.crypto && crypto.randomUUID) ? crypto.randomUUID() : 'd'+Date.now().toString(36)+Math.random().toString(36).slice(2,10); save(); }
 if(!(D.level>=1 && D.level<=MAXL)) D.level = 1;
 
 function streakDays(){
@@ -596,6 +646,7 @@ function floatText(txt, el){
 function bump(el, cls){ el.classList.remove(cls); void el.offsetWidth; el.classList.add(cls); }
 function show(id){
   document.querySelectorAll('.screen').forEach(s=>s.classList.toggle('active', s.id===id));
+  document.querySelectorAll('.burst,.flyer,.float').forEach(el=>el.remove());
   window.scrollTo(0,0);
 }
 
@@ -640,7 +691,6 @@ $('testVoice').addEventListener('click', ()=>{
 
 /* ================= GAME STATE ================= */
 let G = null;   // current game
-let lastShopShare = '';
 let R = null;   // current round
 
 function startGame(){
@@ -1003,7 +1053,6 @@ function endGame(){
   else if(f>=1){ icon='😊'; title='今天辛苦了！'; msg='每位客人最后都买齐了东西。每天练习，记性会越来越好！'; }
   else { icon='🍵'; title='今天辛苦了！'; msg='每位客人都买到东西了，慢慢来，明天再见！'; }
   $('endIcon').textContent = icon; $('endTitle').textContent = title;
-  lastShopShare = '🏮 老街记忆店：今天开杂货店招呼了 '+ROUNDS+' 位客人，'+f+' 位一次就拿对，赚了 '+G.score+' 人情分！已连续开店 '+s+' 天。';
   $('endMsg').textContent = msg + '　已连续开店 '+s+' 天，明天记得再来开店哦！';
   $('endStats').innerHTML = [
     ['服务客人', ROUNDS+' 位'],
@@ -1017,6 +1066,7 @@ function endGame(){
   ].map(r=>'<li><span>'+r[0]+'</span><b>'+r[1]+'</b></li>').join('');
   show('end');
   Sfx.play('end');
+  lbAfterGame('shop', Math.min(G.maxLevel, 9), G.score, $('endRank'));
   if(fresh.length) setTimeout(()=>{ burst(ed); Sfx.play('up'); }, 600);
   R = null;
 }
@@ -1124,12 +1174,12 @@ function finishFlip(){
   F.topics = shuffle([...new Set(F.deck.map(c=>c.id))]);
   F.topicAt = 0;
   $('fTalkQ').textContent = TALK[F.topics[0]];
-  F.shareText = '🏮 老街记忆店：今天玩翻牌配对第 '+F.lv+' 关，'+msg.replace(/[！。]$/,'')+'！已连续开店 '+streakDays()+' 天。';
   $('board').hidden = true; $('fDone').hidden = false;
   $('fMsg').textContent = '🎉 全部配对成功！';
   Sfx.play('end'); burst($('fDoneIcon'));
   if(fresh.length) setTimeout(()=>Sfx.play('up'), 900);
   Speech.say([{text:title, pitch:1.1}]);
+  lbAfterGame('flip', F.lv, F.score, $('fRank'));
 }
 $('flipBtn').addEventListener('click', startFlip);
 $('fTalkNext').addEventListener('click', ()=>{
@@ -1138,32 +1188,107 @@ $('fTalkNext').addEventListener('click', ()=>{
   const q = TALK[F.topics[F.topicAt]]; $('fTalkQ').textContent = q;
   Speech.say([{text:q, pitch:1.05}]);
 });
-$('fShare').addEventListener('click', ()=>{ if(F && F.shareText) shareWithFamily(F.shareText); });
-$('endShare').addEventListener('click', ()=>{ if(lastShopShare) shareWithFamily(lastShopShare); });
-/* share a short result with family: system share sheet (WeChat, WhatsApp…) or copy */
-function shareWithFamily(text){
-  Sfx.play('tap');
-  const url = /^https?:/.test(location.href) ? location.href.split('#')[0] : '';
-  const full = text + (url ? '\n一起来玩：'+url : '');
-  if(navigator.share){
-    navigator.share({title:'老街记忆店', text: full}).catch(()=>{});
-    return;
-  }
-  const done = ()=>toast('已复制，可以贴到微信或 WhatsApp 发给家人', 3000);
-  try{
-    if(navigator.clipboard && navigator.clipboard.writeText){ navigator.clipboard.writeText(full).then(done, ()=>fallbackCopy(full, done)); }
-    else fallbackCopy(full, done);
-  }catch(e){ fallbackCopy(full, done); }
-}
-function fallbackCopy(text, done){
-  const t = document.createElement('textarea'); t.value = text; t.setAttribute('readonly','');
-  t.style.position='fixed'; t.style.opacity='0'; document.body.appendChild(t); t.select();
-  try{ document.execCommand('copy'); done(); }catch(e){ toast('请截图发给家人'); }
-  t.remove();
-}
 $('fNext').addEventListener('click', startFlip);
 $('fBack').addEventListener('click', ()=>{ Sfx.play('tap'); Speech.stop(); if(F) clearTimeout(F.timer); F=null; renderHome(); show('home'); });
 $('fHome').addEventListener('click', ()=>{ Sfx.play('tap'); $('leaveModal').classList.add('show'); });
+
+/* ================= LEADERBOARD ================= */
+function lbHeaders(json){
+  const h = {apikey: LB_KEY};
+  if(/^eyJ/.test(LB_KEY)) h.Authorization = 'Bearer '+LB_KEY;   // legacy anon JWT key
+  if(json){ h['Content-Type'] = 'application/json'; h.Prefer = 'return=minimal'; }
+  return h;
+}
+function weekStart(){ const d = new Date(); d.setHours(0,0,0,0); d.setDate(d.getDate() - ((d.getDay()+6)%7)); return d; }
+function cleanName(n){ return String(n||'').replace(/[<>\u0000-\u001f]/g,'').trim().slice(0,12); }
+/* best score per player (device), highest first */
+async function lbFetch(mode, range){
+  let q = LB_URL+'/rest/v1/scores?select=name,score,level,device,created_at&mode=eq.'+mode+'&order=score.desc,created_at.asc&limit=500';
+  if(range==='week') q += '&created_at=gte.'+encodeURIComponent(weekStart().toISOString());
+  const r = await fetch(q, {headers: lbHeaders(false)});
+  if(!r.ok) throw new Error('HTTP '+r.status);
+  const rows = await r.json(), seen = new Set(), best = [];
+  for(const x of rows){ if(seen.has(x.device)) continue; seen.add(x.device); best.push(x); }
+  return best;
+}
+async function lbSubmit(mode, level, score){
+  const r = await fetch(LB_URL+'/rest/v1/scores', {method:'POST', headers: lbHeaders(true),
+    body: JSON.stringify({name: D.nickname, mode, level, score, device: D.deviceId})});
+  if(!r.ok) throw new Error('HTTP '+r.status);
+}
+/* after a game: upload (asking for a name the first time) and show this week's rank */
+function lbAfterGame(mode, level, score, el){
+  if(!LB_ON || score<=0){ el.hidden = true; return; }
+  el.hidden = false;
+  const go = async ()=>{
+    el.textContent = '🏆 正在上传成绩……';
+    try{
+      await lbSubmit(mode, level, score);
+      const list = await lbFetch(mode, 'week');
+      const k = list.findIndex(x=>x.device===D.deviceId);
+      el.innerHTML = '🏆 '+esc(D.nickname)+'，本周排名：第 <b>'+(k+1)+'</b> 名'+(list[k] && list[k].score>score ? '（最好 '+list[k].score+' 分）' : '')+
+        '<button class="btn btn-paper lbgo" data-mode="'+mode+'">看排行榜</button>';
+    }catch(e){
+      el.innerHTML = '暂时连不上排行榜，下次再试。';
+    }
+  };
+  if(D.nickname){ go(); return; }
+  el.innerHTML = '<button class="btn btn-green lbjoin">🏆 上排行榜</button>';
+  el.querySelector('.lbjoin').addEventListener('click', ()=>askName(go));
+}
+let nameDone = null;
+function askName(then){
+  Sfx.play('tap'); nameDone = then;
+  $('nameInput').value = D.nickname || '';
+  $('nameModal').classList.add('show');
+  setTimeout(()=>$('nameInput').focus(), 50);
+}
+$('nameOk').addEventListener('click', ()=>{
+  const n = cleanName($('nameInput').value);
+  if(!n){ toast('请输入名字'); return; }
+  D.nickname = n; save(); Sfx.play('add');
+  $('nameModal').classList.remove('show');
+  const f = nameDone; nameDone = null; f && f();
+});
+$('nameInput').addEventListener('keydown', e=>{ if(e.key==='Enter') $('nameOk').click(); });
+$('nameCancel').addEventListener('click', ()=>{ Sfx.play('tap'); nameDone = null; $('nameModal').classList.remove('show'); });
+
+let lbMode = 'flip', lbRange = 'week';
+async function renderLb(){
+  ['lbMode','lbRange'].forEach(id=>$(id).querySelectorAll('button').forEach(b=>b.setAttribute('aria-pressed', String(b.dataset.v===(id==='lbMode'?lbMode:lbRange)))));
+  $('lbMe').textContent = D.nickname ? '我的名字：'+D.nickname : '还没有名字，玩完一局就可以上榜';
+  $('lbRename').textContent = D.nickname ? '✏️ 改名字' : '✏️ 起个名字';
+  const list = $('lbList');
+  if(!LB_ON){ list.innerHTML = '<li class="lbstate">排行榜还没开通</li>'; return; }
+  list.innerHTML = '<li class="lbstate">正在加载……</li>';
+  const want = lbMode+lbRange;
+  try{
+    const rows = (await lbFetch(lbMode, lbRange)).slice(0, 50);
+    if(want !== lbMode+lbRange) return;   // tab changed while loading
+    if(!rows.length){ list.innerHTML = '<li class="lbstate">'+(lbRange==='week'?'本周还没有人上榜，快来当第一名！':'还没有人上榜')+'</li>'; return; }
+    const medal = ['🥇','🥈','🥉'];
+    list.innerHTML = rows.map((x,k)=>'<li'+(x.device===D.deviceId?' class="me"':'')+'><span class="rk">'+(medal[k]||(k+1))+'</span>'+
+      '<span class="nm">'+esc(cleanName(x.name))+'</span><span class="lv">第'+(+x.level||1)+(lbMode==='flip'?'关':'级')+'</span><b>'+(+x.score||0)+'</b></li>').join('');
+  }catch(e){
+    if(want === lbMode+lbRange) list.innerHTML = '<li class="lbstate">暂时连不上排行榜，请稍后再试</li>';
+  }
+}
+function openLb(mode){
+  Sfx.play('tap'); Speech.stop();
+  if(mode) lbMode = mode;
+  show('lb'); renderLb();
+}
+$('lbBtn').addEventListener('click', ()=>openLb());
+$('lbHome').addEventListener('click', ()=>{ Sfx.play('tap'); renderHome(); show('home'); });
+$('lbMode').addEventListener('click', e=>{ const b=e.target.closest('button'); if(!b) return; Sfx.play('tap'); lbMode=b.dataset.v; renderLb(); });
+$('lbRange').addEventListener('click', e=>{ const b=e.target.closest('button'); if(!b) return; Sfx.play('tap'); lbRange=b.dataset.v; renderLb(); });
+$('lbRename').addEventListener('click', ()=>askName(renderLb));
+document.addEventListener('click', e=>{
+  const b = e.target.closest('.lbgo'); if(!b) return;
+  if(F){ clearTimeout(F.timer); F = null; }
+  G = null; R = null;
+  openLb(b.dataset.mode);
+});
 
 /* ================= NAV ================= */
 $('openBtn').addEventListener('click', startGame);
