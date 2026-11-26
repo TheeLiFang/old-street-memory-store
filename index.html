@@ -178,7 +178,12 @@ button:disabled{cursor:default}
 .ffront .ic{font-size:42px;line-height:1.1;height:50px;display:flex;align-items:center}
 .ffront .ic svg{width:46px;height:46px}
 .ffront .nm{font-size:22px;font-weight:800;line-height:1.2}
-.fcard.matched .ffront{background:#e3f5d8;border-color:var(--green)}
+.fcard.alt .ffront{background:#eaf2ff;border-style:dashed}
+.fcard.matched .ffront{background:#e3f5d8;border-color:var(--green);border-style:solid}
+.talk{background:#fff;border:3px dashed var(--wood);border-radius:16px;padding:10px 14px;margin:10px 0 4px;text-align:left}
+.talk .q{font-size:24px;font-weight:800;line-height:1.5}
+.talk small{display:block;font-size:20px;color:var(--muted);font-weight:600;margin-bottom:2px}
+.talk .btn{min-height:60px;font-size:21px;margin-top:8px;width:100%}
 .fcard.matched .fin{animation:hop .5s ease}
 .fdone{text-align:center}
 .fdone .bigic{font-size:80px;line-height:1.1}
@@ -246,7 +251,7 @@ button:disabled{cursor:default}
   </div>
   <div class="card">
     <ol class="howto">
-      <li><b>翻牌配对：</b>先看一看牌的位置，牌盖起来后，翻开两张一样的就配成一对。</li>
+      <li><b>翻牌配对：</b>先看一看牌的位置，牌盖起来后，翻开两张一样的就配成一对。到了第 3 关，还要找「有关系」的一对，例如酱油配红烧肉。</li>
       <li><b>杂货店点单：</b>记住客人要买的东西，点一下货品拿一件，拿齐了按「结账」。</li>
       <li>没有时间限制，听不清楚可以按「再听一次」（重听不扣分，但没有「一次就对」奖励）。</li>
       <li>赚到的人情分可以换来小店装饰。</li>
@@ -301,6 +306,12 @@ button:disabled{cursor:default}
     <h2 id="fDoneTitle"></h2>
     <p id="fDoneMsg"></p>
     <div id="fDecor"></div>
+    <div class="talk" id="fTalk">
+      <small>💬 一起聊一聊</small>
+      <div class="q" id="fTalkQ"></div>
+      <button class="btn btn-paper" id="fTalkNext">换一个话题</button>
+    </div>
+    <button class="btn btn-green btn-big" id="fShare">📤 告诉家人</button>
     <button class="btn btn-red btn-big" id="fNext">🃏 再玩一局</button>
     <button class="btn btn-paper btn-big" id="fBack">🏠 回首页</button>
   </div>
@@ -316,6 +327,7 @@ button:disabled{cursor:default}
   </div>
   <div class="card newdecor" id="endDecor" hidden></div>
   <div class="card"><ul class="stats" id="endStats"></ul></div>
+  <button class="btn btn-green btn-big" id="endShare">📤 告诉家人</button>
   <button class="btn btn-red btn-big" id="againBtn">🔁 再开一局</button>
   <button class="btn btn-paper btn-big" id="backBtn">🏠 返回首页</button>
 </section>
@@ -402,6 +414,16 @@ const CHAT = {rice:'家里米缸又满了，心里踏实。', salt:'腌咸菜就
   soy:'红烧肉少不了这瓶酱油。', egg:'明天早上煎个荷包蛋。', noodle:'煮碗面线，给老伴过生日。',
   soda:'这汽水，还是小时候的味道！', biscuit:'饼干配热茶，最舒服了。', soap:'还是这种老肥皂洗得干净。',
   match:'家里的煤炉还得用火柴点。', tea:'泡一壶好茶，听听收音机。', can:'罐头留着过节吃。'};
+/* association pairs for the flip game: each item has a related partner card */
+const PARTNER = {rice:{i:'🍙',n:'饭团'}, salt:{i:'🥬',n:'咸菜'}, sugar:{i:'🍭',n:'糖果'}, soy:{i:'🍖',n:'红烧肉'},
+  egg:{i:'🐔',n:'母鸡'}, noodle:{i:'🎂',n:'生日'}, soda:{i:'☀️',n:'大热天'}, biscuit:{i:'🥛',n:'牛奶'},
+  soap:{i:'🧺',n:'洗衣服'}, match:{i:'🕯️',n:'蜡烛'}, tea:{i:'🫖',n:'茶壶'}, can:{i:'🐟',n:'鱼'}};
+/* reminiscence questions to chat about after a game (with family or carers) */
+const TALK = {rice:'以前家里用什么煮饭？柴火灶还是煤炉？', salt:'你家以前会腌咸菜吗？谁的手艺最好？',
+  sugar:'小时候最爱吃的糖果是什么？', soy:'家里谁做的红烧肉最好吃？', egg:'以前过生日会吃红鸡蛋吗？',
+  noodle:'你记得哪一次过生日最开心？', soda:'你小时候一瓶汽水多少钱？', biscuit:'小时候放学后最爱吃什么零食？',
+  soap:'以前洗衣服用搓衣板吗？在哪里洗？', match:'以前停电的时候，家里怎么过？', tea:'你最喜欢喝什么茶？跟谁一起喝？',
+  can:'以前过年过节，家里会准备什么好吃的？'};
 /* shop decorations unlocked by total 人情分 */
 const DECOR = [
   {s:100,i:'🏮',n:'红灯笼'},{s:250,i:'🐱',n:'小花猫'},{s:450,i:'📻',n:'老收音机'},{s:700,i:'🪴',n:'绿盆栽'},{s:1000,i:'🎐',n:'风铃'},
@@ -618,6 +640,7 @@ $('testVoice').addEventListener('click', ()=>{
 
 /* ================= GAME STATE ================= */
 let G = null;   // current game
+let lastShopShare = '';
 let R = null;   // current round
 
 function startGame(){
@@ -980,6 +1003,7 @@ function endGame(){
   else if(f>=1){ icon='😊'; title='今天辛苦了！'; msg='每位客人最后都买齐了东西。每天练习，记性会越来越好！'; }
   else { icon='🍵'; title='今天辛苦了！'; msg='每位客人都买到东西了，慢慢来，明天再见！'; }
   $('endIcon').textContent = icon; $('endTitle').textContent = title;
+  lastShopShare = '🏮 老街记忆店：今天开杂货店招呼了 '+ROUNDS+' 位客人，'+f+' 位一次就拿对，赚了 '+G.score+' 人情分！已连续开店 '+s+' 天。';
   $('endMsg').textContent = msg + '　已连续开店 '+s+' 天，明天记得再来开店哦！';
   $('endStats').innerHTML = [
     ['服务客人', ROUNDS+' 位'],
@@ -1008,24 +1032,27 @@ function startFlip(){
   const lv = Math.min(Math.max(D.flipLevel||1, 1), FLEVELS.length-1);
   const L = FLEVELS[lv];
   const ids = shuffle(ITEMS.map(i=>i.id)).slice(0, L.p);
-  const deck = shuffle(ids.concat(ids)).map((id,i)=>({id, i, up:true, matched:false}));
-  F = {lv, L, deck, open:[], moves:0, found:0, score:0, combo:0, lock:true, timer:null, saved:false};
+  // level 3: half the pairs are 'related' pairs; level 4+: all of them
+  const nAlt = lv<=2 ? 0 : lv===3 ? Math.ceil(L.p/2) : L.p;
+  const cards = ids.map(id=>({id, alt:false})).concat(ids.map((id,k)=>({id, alt:k<nAlt})));
+  const deck = shuffle(cards).map((c,i)=>({id:c.id, alt:c.alt, i, up:true, matched:false}));
+  F = {lv, L, deck, nAlt, open:[], moves:0, found:0, score:0, combo:0, lock:true, timer:null, saved:false};
   $('fLevel').textContent = '第 '+lv+' 关';
   $('fScore').textContent = '❤️ 0';
   $('fDone').hidden = true; $('board').hidden = false;
   show('flip');
   const b = $('board');
   b.style.gridTemplateColumns = 'repeat('+L.c+',1fr)';
-  b.innerHTML = deck.map(c=>'<button class="fcard up" data-i="'+c.i+'" aria-label="'+ITEM[c.id].name+'"><span class="fin">'+
-    '<span class="fback" aria-hidden="true">老</span><span class="ffront"><span class="ic">'+iconHTML(ITEM[c.id])+'</span><span class="nm">'+ITEM[c.id].name+'</span></span></span></button>').join('');
-  sizeBoard();
+  b.innerHTML = deck.map(c=>'<button class="fcard up'+(c.alt?' alt':'')+'" data-i="'+c.i+'" aria-label="'+cardName(c)+'"><span class="fin">'+
+    '<span class="fback" aria-hidden="true">老</span><span class="ffront"><span class="ic">'+(c.alt?PARTNER[c.id].i:iconHTML(ITEM[c.id]))+'</span><span class="nm">'+cardName(c)+'</span></span></span></button>').join('');
   // look first: all cards face up for a moment (longer for more cards, shorter at higher levels)
-  $('fMsg').textContent = '👀 先看一看，记住位置……';
-  const peek = 1500 + L.p*500 - (lv-1)*400;
+  $('fMsg').textContent = nAlt ? '👀 记住位置。这关找有关系的，例如 '+ITEM[ids[0]].name+'↔'+PARTNER[ids[0]].n : '👀 先看一看，记住位置……';
+  sizeBoard();
+  const peek = 1500 + L.p*500 - (lv-1)*400 + (nAlt ? 1500 : 0);
   F.timer = setTimeout(()=>{
     F.deck.forEach(c=>{ c.up=false; setCard(c); });
     Sfx.play('remove'); F.lock = false;
-    $('fMsg').textContent = '翻开两张一样的 👆';
+    $('fMsg').textContent = flipHint();
   }, peek);
 }
 function sizeBoard(){
@@ -1037,12 +1064,14 @@ function sizeBoard(){
   b.style.setProperty('--ch', ch+'px');
 }
 window.addEventListener('resize', sizeBoard);
+function cardName(c){ return c.alt ? PARTNER[c.id].n : ITEM[c.id].name; }
+function flipHint(){ return !F.nAlt ? '翻开两张一样的 👆' : F.nAlt<F.L.p ? '一样的、有关系的都能配 👆' : '翻开两张有关系的 👆'; }
 function cardEl(c){ return $('board').querySelector('.fcard[data-i="'+c.i+'"]'); }
 function setCard(c){
   const el = cardEl(c); if(!el) return;
   el.classList.toggle('up', c.up || c.matched);
   el.classList.toggle('matched', c.matched);
-  el.setAttribute('aria-label', (c.up||c.matched) ? ITEM[c.id].name : '盖着的牌');
+  el.setAttribute('aria-label', (c.up||c.matched) ? cardName(c) : '盖着的牌');
 }
 $('board').addEventListener('click', e=>{
   const el = e.target.closest('.fcard'); if(!el || !F || F.lock) return;
@@ -1058,8 +1087,9 @@ $('board').addEventListener('click', e=>{
     setTimeout(()=>{
       setCard(a); setCard(b); Sfx.play('coin'); burst(el);
       $('fScore').textContent = '❤️ '+F.score;
-      $('fMsg').textContent = '✨ 配对成功：'+ITEM[a.id].name + (F.combo>=2 ? '（连对 '+F.combo+'）' : '');
-      Speech.say([{text:ITEM[a.id].name, pitch:1.1}]);
+      const said = (a.alt||b.alt) ? ITEM[a.id].name+'配'+PARTNER[a.id].n : ITEM[a.id].name;
+      $('fMsg').textContent = '✨ '+((a.alt||b.alt) ? ITEM[a.id].name+' ↔ '+PARTNER[a.id].n : '配对成功：'+ITEM[a.id].name) + (F.combo>=2 ? '（连对 '+F.combo+'）' : '');
+      Speech.say([{text:said, pitch:1.1}]);
       if(F.found===F.L.p){ F.lock = true; F.timer = setTimeout(finishFlip, 1100); }
     }, 300);
   } else {
@@ -1067,7 +1097,7 @@ $('board').addEventListener('click', e=>{
     $('fMsg').textContent = '不一样，记一记位置 🤔';
     F.timer = setTimeout(()=>{
       a.up = b.up = false; setCard(a); setCard(b); Sfx.play('soft');
-      F.lock = false; $('fMsg').textContent = '翻开两张一样的 👆';
+      F.lock = false; $('fMsg').textContent = flipHint();
     }, 1300);
   }
 });
@@ -1091,6 +1121,10 @@ function finishFlip(){
   $('fDecor').innerHTML = fresh.length
     ? '<p><b>🎁 小店新装饰：'+fresh.map(x=>x.i+' '+x.n).join('、')+'</b></p>'
     : nx ? '<p class="decor-note">再得 '+(nx.s-D.totalScore)+' 分就有「'+nx.n+'」'+nx.i+'</p>' : '';
+  F.topics = shuffle([...new Set(F.deck.map(c=>c.id))]);
+  F.topicAt = 0;
+  $('fTalkQ').textContent = TALK[F.topics[0]];
+  F.shareText = '🏮 老街记忆店：今天玩翻牌配对第 '+F.lv+' 关，'+msg.replace(/[！。]$/,'')+'！已连续开店 '+streakDays()+' 天。';
   $('board').hidden = true; $('fDone').hidden = false;
   $('fMsg').textContent = '🎉 全部配对成功！';
   Sfx.play('end'); burst($('fDoneIcon'));
@@ -1098,6 +1132,35 @@ function finishFlip(){
   Speech.say([{text:title, pitch:1.1}]);
 }
 $('flipBtn').addEventListener('click', startFlip);
+$('fTalkNext').addEventListener('click', ()=>{
+  if(!F || !F.topics) return; Sfx.play('tap');
+  F.topicAt = (F.topicAt+1) % F.topics.length;
+  const q = TALK[F.topics[F.topicAt]]; $('fTalkQ').textContent = q;
+  Speech.say([{text:q, pitch:1.05}]);
+});
+$('fShare').addEventListener('click', ()=>{ if(F && F.shareText) shareWithFamily(F.shareText); });
+$('endShare').addEventListener('click', ()=>{ if(lastShopShare) shareWithFamily(lastShopShare); });
+/* share a short result with family: system share sheet (WeChat, WhatsApp…) or copy */
+function shareWithFamily(text){
+  Sfx.play('tap');
+  const url = /^https?:/.test(location.href) ? location.href.split('#')[0] : '';
+  const full = text + (url ? '\n一起来玩：'+url : '');
+  if(navigator.share){
+    navigator.share({title:'老街记忆店', text: full}).catch(()=>{});
+    return;
+  }
+  const done = ()=>toast('已复制，可以贴到微信或 WhatsApp 发给家人', 3000);
+  try{
+    if(navigator.clipboard && navigator.clipboard.writeText){ navigator.clipboard.writeText(full).then(done, ()=>fallbackCopy(full, done)); }
+    else fallbackCopy(full, done);
+  }catch(e){ fallbackCopy(full, done); }
+}
+function fallbackCopy(text, done){
+  const t = document.createElement('textarea'); t.value = text; t.setAttribute('readonly','');
+  t.style.position='fixed'; t.style.opacity='0'; document.body.appendChild(t); t.select();
+  try{ document.execCommand('copy'); done(); }catch(e){ toast('请截图发给家人'); }
+  t.remove();
+}
 $('fNext').addEventListener('click', startFlip);
 $('fBack').addEventListener('click', ()=>{ Sfx.play('tap'); Speech.stop(); if(F) clearTimeout(F.timer); F=null; renderHome(); show('home'); });
 $('fHome').addEventListener('click', ()=>{ Sfx.play('tap'); $('leaveModal').classList.add('show'); });
