@@ -162,6 +162,29 @@ button:disabled{cursor:default}
 .stats{list-style:none;padding:0;margin:0;text-align:left}
 .stats li{display:flex;justify-content:space-between;gap:10px;padding:10px 4px;border-bottom:2px dotted var(--line);font-size:23px}
 .stats li b{color:var(--red-dark)}
+/* ---------- flip & match ---------- */
+.mode{flex-direction:column;gap:2px;line-height:1.25}
+.mode small{font-size:20px;font-weight:600;opacity:.95}
+.fmsg{text-align:center;font-size:24px;font-weight:800;color:var(--wood-dark);min-height:36px}
+.board{display:grid;gap:8px;padding:8px;background:#9b6a3a;border:4px solid var(--wood-dark);border-radius:16px}
+.fcard{height:var(--ch,110px);perspective:700px;padding:0;min-width:0}
+.fin{position:relative;display:block;width:100%;height:100%;transition:transform .45s;transform-style:preserve-3d}
+.fcard.up .fin{transform:rotateY(180deg)}
+.fback,.ffront{position:absolute;inset:0;border-radius:12px;-webkit-backface-visibility:hidden;backface-visibility:hidden;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;border:3px solid var(--wood-dark);box-shadow:0 4px 0 var(--wood-dark)}
+.fback{background:repeating-linear-gradient(45deg,#b3261e 0 10px,#a11f18 10px 20px);color:var(--gold);font-size:36px;font-weight:900;
+  font-family:"Songti SC","STSong","Noto Serif SC","Noto Serif CJK SC",serif;text-shadow:2px 2px 0 #5a0d08}
+.ffront{background:var(--paper);transform:rotateY(180deg)}
+.ffront .ic{font-size:42px;line-height:1.1;height:50px;display:flex;align-items:center}
+.ffront .ic svg{width:46px;height:46px}
+.ffront .nm{font-size:22px;font-weight:800;line-height:1.2}
+.fcard.matched .ffront{background:#e3f5d8;border-color:var(--green)}
+.fcard.matched .fin{animation:hop .5s ease}
+.fdone{text-align:center}
+.fdone .bigic{font-size:80px;line-height:1.1}
+.fdone h2{margin:4px 0;font-size:32px;color:var(--red-dark)}
+.fdone p{font-size:23px;margin:6px 0}
+.fdone .btn{margin-top:10px}
 /* ---------- change-making ---------- */
 .chq{font-size:24px;margin:0 0 14px;font-weight:700;line-height:1.6}
 .chq b{color:var(--red-dark);font-size:30px}
@@ -204,7 +227,8 @@ button:disabled{cursor:default}
     <div class="sub" id="streakSub"></div>
     <div class="week" id="weekRow"></div>
   </div>
-  <button class="btn btn-red btn-big" id="openBtn">🏪 开店营业</button>
+  <button class="btn btn-red btn-big mode" id="flipBtn"><span>🃏 翻牌配对</span><small>翻开两张一样的 · 最简单</small></button>
+  <button class="btn btn-wood btn-big mode" id="openBtn"><span>🏪 杂货店点单</span><small>听客人说，记住拿货 · 挑战</small></button>
   <div class="card">
     <h3 class="ctitle">🏮 我的小店装饰</h3>
     <div class="decor" id="decorGrid"></div>
@@ -222,12 +246,9 @@ button:disabled{cursor:default}
   </div>
   <div class="card">
     <ol class="howto">
-      <li>客人会说要买什么，请用心记住。</li>
-      <li>客人说完，清单会收起来。</li>
-      <li>点货架上的货品，选好数量。</li>
-      <li>拿齐了就按「结账」。</li>
+      <li><b>翻牌配对：</b>先看一看牌的位置，牌盖起来后，翻开两张一样的就配成一对。</li>
+      <li><b>杂货店点单：</b>记住客人要买的东西，点一下货品拿一件，拿齐了按「结账」。</li>
       <li>没有时间限制，听不清楚可以按「再听一次」（重听不扣分，但没有「一次就对」奖励）。</li>
-      <li>生意好了以后，拿货前要先帮客人找零钱。</li>
       <li>赚到的人情分可以换来小店装饰。</li>
       <li>头上有 ⭐ 的是熟客，记住他买的东西，等一下他会再来说「跟上次一样」。</li>
     </ol>
@@ -261,10 +282,28 @@ button:disabled{cursor:default}
     <div class="chips" id="chips"></div>
   </div>
   <div class="actions" id="actions">
-    <button class="btn btn-paper" id="clearBtn">🗑️ 清空</button>
+    <button class="btn btn-paper" id="undoBtn">↩ 退回一件</button>
     <button class="btn btn-red" id="payBtn">✅ 结账</button>
   </div>
-  <button class="btn btn-green btn-big" id="nextBtn" hidden>下一位客人 ▶</button>
+</section>
+
+<!-- ============ FLIP & MATCH ============ -->
+<section id="flip" class="screen" aria-label="翻牌配对">
+  <div class="topbar">
+    <button class="btn btn-paper home" id="fHome" aria-label="回首页">🏠 首页</button>
+    <span class="pill" id="fLevel">第 1 关</span>
+    <span class="pill heart" id="fScore">❤️ 0</span>
+  </div>
+  <div class="fmsg" id="fMsg" aria-live="polite"></div>
+  <div class="board" id="board"></div>
+  <div class="card fdone" id="fDone" hidden>
+    <div class="bigic" id="fDoneIcon">🎉</div>
+    <h2 id="fDoneTitle"></h2>
+    <p id="fDoneMsg"></p>
+    <div id="fDecor"></div>
+    <button class="btn btn-red btn-big" id="fNext">🃏 再玩一局</button>
+    <button class="btn btn-paper btn-big" id="fBack">🏠 回首页</button>
+  </div>
 </section>
 
 <!-- ============ END ============ -->
@@ -280,30 +319,6 @@ button:disabled{cursor:default}
   <button class="btn btn-red btn-big" id="againBtn">🔁 再开一局</button>
   <button class="btn btn-paper btn-big" id="backBtn">🏠 返回首页</button>
 </section>
-
-<!-- quantity picker -->
-<div class="modal" id="picker" role="dialog" aria-modal="true" aria-labelledby="pkTitle">
-  <div class="sheet">
-    <div class="bigic" id="pkIcon"></div>
-    <h3 id="pkTitle"></h3>
-    <div class="qgrid" id="pkGrid"></div>
-    <div class="row2">
-      <button class="btn btn-paper" id="pkZero">放回货架</button>
-      <button class="btn btn-wood" id="pkCancel">取消</button>
-    </div>
-  </div>
-</div>
-
-<!-- give change (a short distraction before picking) -->
-<div class="modal" id="changeModal" role="dialog" aria-modal="true" aria-labelledby="chTitle">
-  <div class="sheet">
-    <div class="bigic">💰</div>
-    <h3 id="chTitle"></h3>
-    <p class="chq" id="chQ"></p>
-    <div class="qgrid" id="chGrid"></div>
-    <p class="chfb" id="chFb" aria-live="polite"></p>
-  </div>
-</div>
 
 <!-- confirm leave -->
 <div class="modal" id="leaveModal" role="dialog" aria-modal="true">
@@ -413,7 +428,7 @@ function dayKey(d){ d=d||new Date(); return d.getFullYear()+'-'+String(d.getMont
 
 /* ================= STORAGE ================= */
 const KEY = 'laojie-memory-store-v1';
-function defaults(){ return {lang:'cmn',rate:'slow',sound:'on',replayText:'off',level:1,streakRight:0,streakWrong:0,maxLevelEver:1,days:{},totalScore:0}; }
+function defaults(){ return {lang:'cmn',rate:'slow',sound:'on',replayText:'off',level:1,flipLevel:1,streakRight:0,streakWrong:0,maxLevelEver:1,days:{},totalScore:0}; }
 function load(){ try{ const s = JSON.parse(localStorage.getItem(KEY)||'null'); return Object.assign(defaults(), s||{}); }catch(e){ return defaults(); } }
 function save(){ try{ localStorage.setItem(KEY, JSON.stringify(D)); }catch(e){} }
 const D = load();
@@ -648,8 +663,7 @@ function makeRound(){
   const L = LEVELS[D.level];
   const type = chooseType();
   const base = {type, level:D.level, active:0, attempts:0, replays:0, heard:false, phase:'listen', timer:null, droppedThisRound:false,
-    // from level 4: before picking, give the customer change (puts a gap between hearing and recalling)
-    needChange: D.level>=4 && (type==='normal' || type==='change') && Math.random()<0.6, changeDone:false};
+    hist:[[],[]]};
   const lg = T[D.lang];
   if(type!=='normal') G.specials++;
 
@@ -693,7 +707,7 @@ function nextRound(){
   R = makeRound();
   $('roundPill').textContent = '第 '+G.round+' / '+ROUNDS+(R.type==='twin'?' 组':' 位');
   $('scorePill').textContent = '❤️ '+G.score;
-  $('nextBtn').hidden = true; $('actions').hidden = false;
+  $('actions').hidden = false;
   $('counter').classList.toggle('twin', R.customers.length>1);
   renderCustomers(true);
   renderShelf(); renderBasket();
@@ -726,15 +740,15 @@ function speechParts(reveal){
 /* phases: enter → listen (text shown, shelf locked) → pick (text hidden) → done */
 function setPhase(ph){
   R.phase = ph;
-  const locked = (ph==='enter' || ph==='listen' || ph==='change');
+  const locked = (ph==='enter' || ph==='listen');
   $('shelfWrap').classList.toggle('locked', locked);
   $('counter').classList.toggle('compact', ph==='pick' || ph==='done');
-  $('lockMsg').textContent = ph==='change' ? '💰 先找零钱' : ph==='done' ? '' : '👂 请先听客人说完';
-  $('counter').classList.toggle('compact', ph==='pick' || ph==='done' || ph==='change');
+  $('lockMsg').textContent = ph==='done' ? '' : '👂 请先听客人说完';
+  $('counter').classList.toggle('compact', ph==='pick' || ph==='done');
   $('readyBtn').hidden = !(ph==='listen');
-  $('replayBtn').disabled = (ph==='enter' || ph==='done' || ph==='change');
+  $('replayBtn').disabled = (ph==='enter' || ph==='done');
   $('payBtn').disabled = (ph!=='pick');
-  $('clearBtn').disabled = (ph!=='pick');
+  $('undoBtn').disabled = (ph!=='pick');
 }
 
 function speakOrder(isReplay, prefixLine){
@@ -762,7 +776,6 @@ function hideOrder(){
   if(!R || R.phase!=='listen') return;
   clearTimeout(R.timer); Speech.stop();
   R.heard = true;
-  if(R.needChange && !R.changeDone){ openChange(); return; }
   showPickMsg();
   setPhase('pick');
 }
@@ -770,34 +783,6 @@ function showPickMsg(){
   $('bubble').innerHTML = '<p class="hidden-msg">清单收起来了，请拿货。</p>' +
     (R.replays ? '<p class="count">已重听 '+R.replays+' 次</p>' : '');
 }
-
-/* ---- give change ---- */
-function openChange(){
-  setPhase('change');
-  const price = rand(2,9), paid = price<=4 && Math.random()<0.5 ? 5 : 10, ans = paid-price;
-  const opts = [ans].concat(shuffle([ans-1, ans+1, ans+2, ans-2].filter(n=>n>=1)).slice(0,2));
-  R.change = {price, paid, ans};
-  const name = R.customers[0].p.name;
-  $('bubble').innerHTML = '<p>老板，先给你钱。</p>';
-  $('chTitle').textContent = '找零钱';
-  $('chQ').innerHTML = '东西一共 <b>'+price+'</b> 元<br>'+esc(name)+'给了你 <b>'+paid+'</b> 元<br>要找回多少元？';
-  $('chGrid').innerHTML = shuffle(opts).map(n=>'<button data-v="'+n+'">'+n+' 元</button>').join('');
-  $('chFb').textContent = '';
-  $('changeModal').classList.add('show');
-  Speech.say([{text:'老板，先给你钱。一共'+price+'元，我给你'+paid+'元。', pitch:R.customers[0].p.pitch}]);
-}
-$('chGrid').addEventListener('click', e=>{
-  const b = e.target.closest('button'); if(!b || !R || R.phase!=='change') return;
-  if(+b.dataset.v===R.change.ans){
-    Sfx.play('coin'); R.changeDone = true;
-    $('changeModal').classList.remove('show');
-    toast('💰 找对了！现在去拿货吧');
-    Speech.stop(); showPickMsg(); setPhase('pick');
-  } else {
-    Sfx.play('soft'); b.disabled = true;
-    $('chFb').textContent = '再算算看：'+R.change.paid+' 减 '+R.change.price+' 是多少？';
-  }
-});
 
 /* ================= SHELF & BASKET ================= */
 function basket(){ return R.baskets[R.active]; }
@@ -835,8 +820,11 @@ function setQty(id,q){
 
 $('shelf').addEventListener('click', e=>{
   const t = e.target.closest('.tile'); if(!t || !R) return;
-  if(R.phase!=='pick'){ Sfx.play('tap'); toast(R.phase==='done'?'请按「下一位客人」':'请先听客人说完'); return; }
-  openPicker(t.dataset.id);
+  if(R.phase!=='pick'){ Sfx.play('tap'); toast(R.phase==='done'?'下一位客人马上来':'请先听客人说完'); return; }
+  const id = t.dataset.id, q = (basket()[id]||0) + 1;
+  if(q>9){ Sfx.play('soft'); toast('拿太多啦'); return; }
+  R.hist[R.active].push(id);
+  setQty(id, q);
 });
 $('btabs').addEventListener('click', e=>{
   const b = e.target.closest('button'); if(!b || !R) return;
@@ -844,27 +832,6 @@ $('btabs').addEventListener('click', e=>{
   renderShelf(); renderBasket();
   toast('现在帮 '+R.customers[R.active].p.name+' 拿货');
 });
-
-/* ---- quantity picker ---- */
-let pkId = null;
-function openPicker(id){
-  Sfx.play('tap');
-  pkId = id;
-  const it = ITEM[id], cur = basket()[id]||0;
-  $('pkIcon').innerHTML = iconHTML(it);
-  $('pkTitle').textContent = it.name+' 要几'+unit(id)+'？';
-  $('pkGrid').innerHTML = [1,2,3,4,5,6].map(n=>'<button data-q="'+n+'" aria-pressed="'+(n===cur)+'">'+n+'</button>').join('');
-  $('pkZero').hidden = !cur;
-  $('picker').classList.add('show');
-}
-function closePicker(){ $('picker').classList.remove('show'); pkId=null; }
-$('pkGrid').addEventListener('click', e=>{
-  const b = e.target.closest('button'); if(!b || !pkId) return;
-  const id=pkId; closePicker(); setQty(id, +b.dataset.q);
-});
-$('pkZero').addEventListener('click', ()=>{ const id=pkId; closePicker(); if(id) setQty(id,0); });
-$('pkCancel').addEventListener('click', ()=>{ Sfx.play('tap'); closePicker(); });
-$('picker').addEventListener('click', e=>{ if(e.target.id==='picker'){ closePicker(); } });
 
 /* ================= CHECKOUT ================= */
 function diff(order, b){
@@ -886,10 +853,11 @@ function checkout(){
   if(!d) onSuccess(); else onWrong(wrongIdx, d);
 }
 $('payBtn').addEventListener('click', checkout);
-$('clearBtn').addEventListener('click', ()=>{
+$('undoBtn').addEventListener('click', ()=>{
   if(!R || R.phase!=='pick') return;
-  if(!Object.keys(basket()).length){ Sfx.play('tap'); return; }
-  R.baskets[R.active] = {}; renderShelf(); renderBasket(); Sfx.play('remove'); toast('篮子清空了');
+  const id = R.hist[R.active].pop();
+  if(!id){ Sfx.play('tap'); toast('篮子是空的'); return; }
+  setQty(id, (basket()[id]||1) - 1);
 });
 
 function onSuccess(){
@@ -910,7 +878,10 @@ function onSuccess(){
   floatText('❤️ +'+pts, $('scorePill'));
   $('scorePill').textContent = '❤️ '+G.score;
   if(G.combo>=2) setTimeout(()=>comboBanner('🔥 连对 '+G.combo+' 位 +'+bonus), 500);
-  Speech.say([{text:line, pitch:R.customers[0].p.pitch},{text:chat, pitch:R.customers[0].p.pitch}]);
+  const thisRound = R;
+  Speech.say([{text:line, pitch:R.customers[0].p.pitch},{text:chat, pitch:R.customers[0].p.pitch}], ()=>{
+    setTimeout(()=>{ if(R===thisRound && R.phase==='done') goNext(); }, 1300);
+  });
 
   // difficulty: 3 first-try successes in a row → harder
   D.streakWrong = 0;
@@ -927,8 +898,6 @@ function onSuccess(){
   trackLevel();
 
   $('actions').hidden = true;
-  $('nextBtn').hidden = false;
-  $('nextBtn').textContent = G.round>=ROUNDS ? '今天打烊 🌙' : '下一位客人 ▶';
 }
 
 function onWrong(i, d){
@@ -971,15 +940,14 @@ function trackLevel(){
   save();
 }
 
-$('nextBtn').addEventListener('click', ()=>{
-  if(!R || R.phase!=='done') return;
-  Sfx.play('tap'); Speech.stop();
-  $('nextBtn').hidden = true;
+function goNext(){
+  if(!R || R.phase!=='done' || R.leaving) return;
+  R.leaving = true;
   $('custBox').querySelectorAll('.cust').forEach(el=>el.classList.add('walkout'));
-  setTimeout(nextRound, 600);
-});
+  setTimeout(()=>{ if(G) nextRound(); }, 650);
+}
 $('replayBtn').addEventListener('click', ()=>{
-  if(!R || R.phase==='enter' || R.phase==='done' || R.phase==='change') return;
+  if(!R || R.phase==='enter' || R.phase==='done') return;
   Sfx.play('tap'); Speech.unlock();
   if(R.heard){
     R.replays++;
@@ -1029,6 +997,111 @@ function endGame(){
   R = null;
 }
 
+/* ================= FLIP & MATCH ================= */
+/* p = pairs, c = columns. Moves up a level after a tidy board, down after a hard one. */
+const FLEVELS = [null, {p:3,c:3}, {p:4,c:4}, {p:6,c:4}, {p:8,c:4}, {p:10,c:4}];
+let F = null;
+function startFlip(){
+  Speech.unlock(); Sfx.ensure(); Sfx.play('tap');
+  if(F) clearTimeout(F.timer);
+  const td = today(); td.games++; save();
+  const lv = Math.min(Math.max(D.flipLevel||1, 1), FLEVELS.length-1);
+  const L = FLEVELS[lv];
+  const ids = shuffle(ITEMS.map(i=>i.id)).slice(0, L.p);
+  const deck = shuffle(ids.concat(ids)).map((id,i)=>({id, i, up:true, matched:false}));
+  F = {lv, L, deck, open:[], moves:0, found:0, score:0, combo:0, lock:true, timer:null, saved:false};
+  $('fLevel').textContent = '第 '+lv+' 关';
+  $('fScore').textContent = '❤️ 0';
+  $('fDone').hidden = true; $('board').hidden = false;
+  show('flip');
+  const b = $('board');
+  b.style.gridTemplateColumns = 'repeat('+L.c+',1fr)';
+  b.innerHTML = deck.map(c=>'<button class="fcard up" data-i="'+c.i+'" aria-label="'+ITEM[c.id].name+'"><span class="fin">'+
+    '<span class="fback" aria-hidden="true">老</span><span class="ffront"><span class="ic">'+iconHTML(ITEM[c.id])+'</span><span class="nm">'+ITEM[c.id].name+'</span></span></span></button>').join('');
+  sizeBoard();
+  // look first: all cards face up for a moment (longer for more cards, shorter at higher levels)
+  $('fMsg').textContent = '👀 先看一看，记住位置……';
+  const peek = 1500 + L.p*500 - (lv-1)*400;
+  F.timer = setTimeout(()=>{
+    F.deck.forEach(c=>{ c.up=false; setCard(c); });
+    Sfx.play('remove'); F.lock = false;
+    $('fMsg').textContent = '翻开两张一样的 👆';
+  }, peek);
+}
+function sizeBoard(){
+  if(!F) return;
+  const b = $('board'), rows = Math.ceil(F.deck.length / F.L.c);
+  const top = b.getBoundingClientRect().top;
+  const avail = window.innerHeight - top - 24 - 16 - 24;   // board padding + border + bottom gutter
+  const ch = Math.max(64, Math.min(150, Math.floor((avail - (rows-1)*8) / rows)));
+  b.style.setProperty('--ch', ch+'px');
+}
+window.addEventListener('resize', sizeBoard);
+function cardEl(c){ return $('board').querySelector('.fcard[data-i="'+c.i+'"]'); }
+function setCard(c){
+  const el = cardEl(c); if(!el) return;
+  el.classList.toggle('up', c.up || c.matched);
+  el.classList.toggle('matched', c.matched);
+  el.setAttribute('aria-label', (c.up||c.matched) ? ITEM[c.id].name : '盖着的牌');
+}
+$('board').addEventListener('click', e=>{
+  const el = e.target.closest('.fcard'); if(!el || !F || F.lock) return;
+  const c = F.deck[+el.dataset.i]; if(c.up || c.matched) return;
+  c.up = true; setCard(c); Sfx.play('tap');
+  F.open.push(c);
+  if(F.open.length<2) return;
+  F.moves++;
+  const [a, b] = F.open; F.open = [];
+  if(a.id===b.id){
+    a.matched = b.matched = true; F.found++; F.combo++;
+    const pts = 10 + (F.combo>=2 ? 5 : 0); F.score += pts;
+    setTimeout(()=>{
+      setCard(a); setCard(b); Sfx.play('coin'); burst(el);
+      $('fScore').textContent = '❤️ '+F.score;
+      $('fMsg').textContent = '✨ 配对成功：'+ITEM[a.id].name + (F.combo>=2 ? '（连对 '+F.combo+'）' : '');
+      Speech.say([{text:ITEM[a.id].name, pitch:1.1}]);
+      if(F.found===F.L.p){ F.lock = true; F.timer = setTimeout(finishFlip, 1100); }
+    }, 300);
+  } else {
+    F.combo = 0; F.lock = true;
+    $('fMsg').textContent = '不一样，记一记位置 🤔';
+    F.timer = setTimeout(()=>{
+      a.up = b.up = false; setCard(a); setCard(b); Sfx.play('soft');
+      F.lock = false; $('fMsg').textContent = '翻开两张一样的 👆';
+    }, 1300);
+  }
+});
+function finishFlip(){
+  const p = F.L.p, m = F.moves, good = Math.ceil(p*1.6);
+  let bonus = 0, icon, title, msg;
+  if(m<=p+1){ bonus=30; icon='🏆'; title='过目不忘！'; msg='只试了 '+m+' 次就全部配对，记性真好！'; }
+  else if(m<=good){ bonus=15; icon='🌟'; title='做得很好！'; msg='试了 '+m+' 次，全部配对成功！'; }
+  else { icon='😊'; title='全部配对了！'; msg='试了 '+m+' 次。慢慢来，越玩越熟练。'; }
+  F.score += bonus;
+  $('fScore').textContent = '❤️ '+F.score;
+  let lvMsg = '';
+  if(m<=good && F.lv<FLEVELS.length-1){ D.flipLevel = F.lv+1; lvMsg = '🎊 下一局会多几张牌'; }
+  else if(m>p*3 && F.lv>1){ D.flipLevel = F.lv-1; lvMsg = '下一局牌会少一点'; }
+  else D.flipLevel = F.lv;
+  const td = today(), before = D.totalScore;
+  td.score += F.score; D.totalScore += F.score; F.saved = true; save();
+  const fresh = DECOR.filter(x=>before<x.s && D.totalScore>=x.s), nx = DECOR.find(x=>D.totalScore<x.s);
+  $('fDoneIcon').textContent = icon; $('fDoneTitle').textContent = title;
+  $('fDoneMsg').innerHTML = esc(msg)+'<br>❤️ 人情分 +'+F.score + (lvMsg ? '<br>'+lvMsg : '');
+  $('fDecor').innerHTML = fresh.length
+    ? '<p><b>🎁 小店新装饰：'+fresh.map(x=>x.i+' '+x.n).join('、')+'</b></p>'
+    : nx ? '<p class="decor-note">再得 '+(nx.s-D.totalScore)+' 分就有「'+nx.n+'」'+nx.i+'</p>' : '';
+  $('board').hidden = true; $('fDone').hidden = false;
+  $('fMsg').textContent = '🎉 全部配对成功！';
+  Sfx.play('end'); burst($('fDoneIcon'));
+  if(fresh.length) setTimeout(()=>Sfx.play('up'), 900);
+  Speech.say([{text:title, pitch:1.1}]);
+}
+$('flipBtn').addEventListener('click', startFlip);
+$('fNext').addEventListener('click', startFlip);
+$('fBack').addEventListener('click', ()=>{ Sfx.play('tap'); Speech.stop(); if(F) clearTimeout(F.timer); F=null; renderHome(); show('home'); });
+$('fHome').addEventListener('click', ()=>{ Sfx.play('tap'); $('leaveModal').classList.add('show'); });
+
 /* ================= NAV ================= */
 $('openBtn').addEventListener('click', startGame);
 $('againBtn').addEventListener('click', startGame);
@@ -1039,13 +1112,14 @@ $('leaveYes').addEventListener('click', ()=>{
   $('leaveModal').classList.remove('show'); Speech.stop();
   if(R) clearTimeout(R.timer);
   if(G){ const td=today(); td.score+=G.score; D.totalScore+=G.score; save(); }
-  G=null; R=null; renderHome(); show('home');
+  if(F){ clearTimeout(F.timer); if(!F.saved && F.score){ const td=today(); td.score+=F.score; D.totalScore+=F.score; save(); } }
+  G=null; R=null; F=null; renderHome(); show('home');
 });
 document.addEventListener('visibilitychange', ()=>{ if(document.hidden) Speech.stop(); });
 
 Speech.init();
 renderHome();
-window.__oss = { get G(){return G;}, get R(){return R;}, D };
+window.__oss = { get G(){return G;}, get R(){return R;}, get F(){return F;}, D };
 })();
 </script>
 </body>
