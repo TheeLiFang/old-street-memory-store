@@ -177,7 +177,7 @@ button:disabled{cursor:default}
 .ffront{background:var(--paper);transform:rotateY(180deg)}
 .ffront .ic{font-size:42px;line-height:1.1;height:50px;display:flex;align-items:center}
 .ffront .ic svg{width:46px;height:46px}
-.ffront .nm{font-size:22px;font-weight:800;line-height:1.2}
+.ffront .nm{font-size:22px;font-weight:800;line-height:1.2;white-space:nowrap;letter-spacing:-1px}
 .fcard.alt .ffront{background:#eaf2ff;border-style:dashed}
 .fcard.matched .ffront{background:#e3f5d8;border-color:var(--green);border-style:solid}
 .talk{background:#fff;border:3px dashed var(--wood);border-radius:16px;padding:10px 14px;margin:10px 0 4px;text-align:left}
@@ -248,6 +248,7 @@ button:disabled{cursor:default}
     <div class="week" id="weekRow"></div>
   </div>
   <button class="btn btn-red btn-big mode" id="flipBtn"><span>🃏 翻牌配对</span><small>翻开两张一样的 · 最简单</small></button>
+  <button class="btn btn-green btn-big mode" id="dailyBtn"><span>📅 今日挑战</span><small id="dailySub">每天一盘新牌</small></button>
   <button class="btn btn-wood btn-big mode" id="openBtn"><span>🏪 杂货店点单</span><small>听客人说，记住拿货 · 挑战</small></button>
   <button class="btn btn-paper btn-big" id="lbBtn">🏆 排行榜</button>
   <div class="card">
@@ -267,6 +268,7 @@ button:disabled{cursor:default}
   </div>
   <div class="card">
     <ol class="howto">
+      <li><b>今日挑战：</b>每天一盘新牌，人人一样，看看今天最少几次能配完。</li>
       <li><b>翻牌配对：</b>先看一看牌的位置，牌盖起来后，翻开两张一样的就配成一对。到了第 3 关，还要找「有关系」的一对，例如酱油配红烧肉。</li>
       <li><b>杂货店点单：</b>记住客人要买的东西，点一下货品拿一件，拿齐了按「结账」。</li>
       <li>没有时间限制，听不清楚可以按「再听一次」（重听不扣分，但没有「一次就对」奖励）。</li>
@@ -668,6 +670,8 @@ function renderHome(){
   $('weekRow').innerHTML = wk.map((d,k)=>{ const on=!!D.days[dayKey(d)];
     return '<span class="'+(on?'on':'')+(k===6?' today':'')+'"><b>'+'日一二三四五六'[d.getDay()]+'</b>'+(on?'🏮':'·')+'</span>'; }).join('');
   // decorations
+  const dl = D.daily && D.daily.date===dayKey() ? D.daily : null;
+  $('dailySub').textContent = dl ? '今日成绩 '+dl.best+' 次 ✅ 明天有新的一盘' : '每天一盘新牌，今天还没挑战';
   $('decorGrid').innerHTML = DECOR.map(x=>'<div class="'+(D.totalScore>=x.s?'':'locked')+'" title="'+x.n+'">'+x.i+'</div>').join('');
   const nx = DECOR.find(x=>D.totalScore<x.s);
   $('decorNote').textContent = '累计人情分 '+D.totalScore+(nx ? '，再得 '+(nx.s-D.totalScore)+' 分就有「'+nx.n+'」' : '，装饰全部集齐了！');
@@ -1074,29 +1078,70 @@ function endGame(){
 /* ================= FLIP & MATCH ================= */
 /* p = pairs, c = columns. Moves up a level after a tidy board, down after a hard one. */
 const FLEVELS = [null, {p:3,c:3}, {p:4,c:4}, {p:6,c:4}, {p:8,c:4}, {p:10,c:4}];
+const DAILY = {p:8, c:4, lvLike:4};   // today's challenge: same board for everyone, every day a new one
+/* card themes; 'goods' are the shop items and also have related partner cards */
+const THEMES = [
+  {k:'goods', n:'老街杂货', cards: ITEMS.map(it=>({key:it.id, icon:iconHTML(it), name:it.name}))},
+  {k:'snacks', n:'老街小吃', cards: [['dumpling','🥟','饺子'],['mooncake','🥮','月饼'],['haws','🍡','糖葫芦'],['icecream','🍦','冰淇淋'],
+    ['shaveice','🍧','刨冰'],['melon','🍉','西瓜'],['yam','🍠','烤红薯'],['popcorn','🍿','爆米花'],['congee','🥣','白粥'],
+    ['skewer','🍢','串串'],['peanut','🥜','花生'],['orange','🍊','橘子']].map(([key,icon,name])=>({key, icon, name}))},
+  {k:'toys', n:'儿时玩具', cards: [['kite','🪁','风筝'],['yoyo','🪀','溜溜球'],['bear','🧸','小熊'],['balloon','🎈','气球'],
+    ['frog','🐸','青蛙'],['dice','🎲','骰子'],['mahjong','🀄','麻将'],['chess','♟️','下棋'],['pingpong','🏓','乒乓球'],
+    ['badminton','🏸','羽毛球'],['radio','📻','收音机'],['camera','📷','照相机']].map(([key,icon,name])=>({key, icon, name}))}
+];
+const CARD = {}; THEMES.forEach(t=>t.cards.forEach(c=>{ CARD[c.key] = c; }));
+const THEME_TALK = {
+  snacks:['你最怀念小时候哪一样小吃？','过年的时候，家里会一起包饺子吗？谁包得最好？','中秋节你最喜欢什么馅的月饼？',
+          '小时候夏天怎么消暑？','以前街口卖什么零食？多少钱？','你有哪一道拿手菜？'],
+  toys:['小时候最喜欢玩什么游戏？','你放过风筝吗？在哪里放的？','以前跟谁一起下棋、打牌？',
+        '小时候有没有自己做过玩具？','你第一次照相是什么时候？','以前家里有收音机吗？大家听什么节目？']
+};
+/* small seeded random generator, so today's challenge is the same board on every phone */
+function seeded(str){
+  let h = 1779033703 ^ str.length;
+  for(let i=0;i<str.length;i++){ h = Math.imul(h ^ str.charCodeAt(i), 3432918353); h = h<<13 | h>>>19; }
+  return ()=>{ h = Math.imul(h ^ h>>>16, 2246822507); h = Math.imul(h ^ h>>>13, 3266489909); h ^= h>>>16; return (h>>>0)/4294967296; };
+}
+function shuffleWith(arr, rnd){ const a=arr.slice(); for(let i=a.length-1;i>0;i--){ const j=Math.floor(rnd()*(i+1)); [a[i],a[j]]=[a[j],a[i]]; } return a; }
+function dayNumber(){ const d=new Date(); return Math.floor(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate())/864e5); }
+
 let F = null;
-function startFlip(){
+function startFlip(daily){
+  daily = daily===true;
   Speech.unlock(); Sfx.ensure(); Sfx.play('tap');
   if(F) clearTimeout(F.timer);
   const td = today(); td.games++; save();
-  const lv = Math.min(Math.max(D.flipLevel||1, 1), FLEVELS.length-1);
-  const L = FLEVELS[lv];
-  const ids = shuffle(ITEMS.map(i=>i.id)).slice(0, L.p);
-  // level 3: half the pairs are 'related' pairs; level 4+: all of them
-  const nAlt = lv<=2 ? 0 : lv===3 ? Math.ceil(L.p/2) : L.p;
-  const cards = ids.map(id=>({id, alt:false})).concat(ids.map((id,k)=>({id, alt:k<nAlt})));
-  const deck = shuffle(cards).map((c,i)=>({id:c.id, alt:c.alt, i, up:true, matched:false}));
-  F = {lv, L, deck, nAlt, open:[], moves:0, found:0, score:0, combo:0, lock:true, timer:null, saved:false};
-  $('fLevel').textContent = '第 '+lv+' 关';
+  let lv, L, theme, keys, nAlt, deckOrder;
+  if(daily){
+    const rnd = seeded('laojie-'+dayKey());
+    lv = DAILY.lvLike; L = {p:DAILY.p, c:DAILY.c};
+    theme = THEMES[dayNumber() % THEMES.length];
+    keys = shuffleWith(theme.cards.map(c=>c.key), rnd).slice(0, L.p);
+    nAlt = 0;
+    deckOrder = cards => shuffleWith(cards, rnd);
+  } else {
+    lv = Math.min(Math.max(D.flipLevel||1, 1), FLEVELS.length-1); L = FLEVELS[lv];
+    D.flipRound = (D.flipRound||0) + 1;
+    theme = THEMES[D.flipRound % THEMES.length];
+    keys = shuffle(theme.cards.map(c=>c.key)).slice(0, L.p);
+    // shop goods from level 3: half the pairs are 'related' pairs; level 4+: all of them
+    nAlt = theme.k!=='goods' || lv<=2 ? 0 : lv===3 ? Math.ceil(L.p/2) : L.p;
+    deckOrder = shuffle;
+  }
+  const cards = keys.map(id=>({id, alt:false})).concat(keys.map((id,k)=>({id, alt:k<nAlt})));
+  const deck = deckOrder(cards).map((c,i)=>({id:c.id, alt:c.alt, i, up:true, matched:false}));
+  F = {daily, lv, L, theme, deck, nAlt, open:[], moves:0, found:0, score:0, combo:0, lock:true, timer:null, saved:false};
+  $('fLevel').textContent = daily ? '📅 今日挑战' : '第 '+lv+' 关';
   $('fScore').textContent = '❤️ 0';
   $('fDone').hidden = true; $('board').hidden = false;
   show('flip');
   const b = $('board');
   b.style.gridTemplateColumns = 'repeat('+L.c+',1fr)';
   b.innerHTML = deck.map(c=>'<button class="fcard up'+(c.alt?' alt':'')+'" data-i="'+c.i+'" aria-label="'+cardName(c)+'"><span class="fin">'+
-    '<span class="fback" aria-hidden="true">老</span><span class="ffront"><span class="ic">'+(c.alt?PARTNER[c.id].i:iconHTML(ITEM[c.id]))+'</span><span class="nm">'+cardName(c)+'</span></span></span></button>').join('');
+    '<span class="fback" aria-hidden="true">老</span><span class="ffront"><span class="ic">'+cardIcon(c)+'</span><span class="nm">'+cardName(c)+'</span></span></span></button>').join('');
   // look first: all cards face up for a moment (longer for more cards, shorter at higher levels)
-  $('fMsg').textContent = nAlt ? '👀 记住位置。这关找有关系的，例如 '+ITEM[ids[0]].name+'↔'+PARTNER[ids[0]].n : '👀 先看一看，记住位置……';
+  $('fMsg').textContent = nAlt ? '👀 记住位置。这关找有关系的，例如 '+CARD[keys[0]].name+'↔'+PARTNER[keys[0]].n
+                               : '👀 '+theme.n+'：先看一看，记住位置……';
   sizeBoard();
   const peek = 1500 + L.p*500 - (lv-1)*400 + (nAlt ? 1500 : 0);
   F.timer = setTimeout(()=>{
@@ -1114,7 +1159,8 @@ function sizeBoard(){
   b.style.setProperty('--ch', ch+'px');
 }
 window.addEventListener('resize', sizeBoard);
-function cardName(c){ return c.alt ? PARTNER[c.id].n : ITEM[c.id].name; }
+function cardName(c){ return c.alt ? PARTNER[c.id].n : CARD[c.id].name; }
+function cardIcon(c){ return c.alt ? PARTNER[c.id].i : CARD[c.id].icon; }
 function flipHint(){ return !F.nAlt ? '翻开两张一样的 👆' : F.nAlt<F.L.p ? '一样的、有关系的都能配 👆' : '翻开两张有关系的 👆'; }
 function cardEl(c){ return $('board').querySelector('.fcard[data-i="'+c.i+'"]'); }
 function setCard(c){
@@ -1137,9 +1183,9 @@ $('board').addEventListener('click', e=>{
     setTimeout(()=>{
       setCard(a); setCard(b); Sfx.play('coin'); burst(el);
       $('fScore').textContent = '❤️ '+F.score;
-      const said = (a.alt||b.alt) ? ITEM[a.id].name+'配'+PARTNER[a.id].n : ITEM[a.id].name;
-      $('fMsg').textContent = '✨ '+((a.alt||b.alt) ? ITEM[a.id].name+' ↔ '+PARTNER[a.id].n : '配对成功：'+ITEM[a.id].name) + (F.combo>=2 ? '（连对 '+F.combo+'）' : '');
-      Speech.say([{text:said, pitch:1.1}]);
+      const rel = a.alt || b.alt, nm = CARD[a.id].name;
+      $('fMsg').textContent = '✨ '+(rel ? nm+' ↔ '+PARTNER[a.id].n : '配对成功：'+nm) + (F.combo>=2 ? '（连对 '+F.combo+'）' : '');
+      Speech.say([{text: rel ? nm+'配'+PARTNER[a.id].n : nm, pitch:1.1}]);
       if(F.found===F.L.p){ F.lock = true; F.timer = setTimeout(finishFlip, 1100); }
     }, 300);
   } else {
@@ -1157,38 +1203,69 @@ function finishFlip(){
   if(m<=p+1){ bonus=30; icon='🏆'; title='过目不忘！'; msg='只试了 '+m+' 次就全部配对，记性真好！'; }
   else if(m<=good){ bonus=15; icon='🌟'; title='做得很好！'; msg='试了 '+m+' 次，全部配对成功！'; }
   else { icon='😊'; title='全部配对了！'; msg='试了 '+m+' 次。慢慢来，越玩越熟练。'; }
+
+  // personal records: fewest tries for this level, or for today's challenge
+  let recMsg = '', newRec = false;
+  if(F.daily){
+    // only the first try of the day counts (afterwards the board is already known)
+    const dk = dayKey(), first = !(D.daily && D.daily.date===dk);
+    if(first){
+      const prevBest = D.dailyBest || 0;
+      D.daily = {date:dk, best:m};
+      D.dailyDays = (D.dailyDays||0) + 1;
+      if(!prevBest || m<prevBest){ D.dailyBest = m; newRec = !!prevBest; }
+      recMsg = '📅 今日成绩：'+m+' 次' + (newRec ? '　🎉 历来最好！' : D.dailyBest ? '（历来最好 '+D.dailyBest+' 次）' : '');
+      if(newRec) bonus += 20;
+    } else {
+      bonus = 0;
+      recMsg = '这是练习局。今日成绩：'+D.daily.best+' 次，明天再来新的一盘！';
+    }
+  } else {
+    D.flipBest = D.flipBest || {};
+    const k = 'lv'+F.lv, prev = D.flipBest[k];
+    if(!prev || m<prev){ D.flipBest[k] = m; newRec = !!prev; }
+    recMsg = newRec ? '🎉 新纪录！第 '+F.lv+' 关最少 '+m+' 次（之前 '+prev+' 次）' : '第 '+F.lv+' 关最好纪录：'+D.flipBest[k]+' 次';
+    if(newRec) bonus += 20;
+  }
   F.score += bonus;
   $('fScore').textContent = '❤️ '+F.score;
+
   let lvMsg = '';
-  if(m<=good && F.lv<FLEVELS.length-1){ D.flipLevel = F.lv+1; lvMsg = '🎊 下一局会多几张牌'; }
-  else if(m>p*3 && F.lv>1){ D.flipLevel = F.lv-1; lvMsg = '下一局牌会少一点'; }
-  else D.flipLevel = F.lv;
+  if(!F.daily){
+    if(m<=good && F.lv<FLEVELS.length-1){ D.flipLevel = F.lv+1; lvMsg = '🎊 下一局会多几张牌'; }
+    else if(m>p*3 && F.lv>1){ D.flipLevel = F.lv-1; lvMsg = '下一局牌会少一点'; }
+    else D.flipLevel = F.lv;
+  }
   const td = today(), before = D.totalScore;
   td.score += F.score; D.totalScore += F.score; F.saved = true; save();
   const fresh = DECOR.filter(x=>before<x.s && D.totalScore>=x.s), nx = DECOR.find(x=>D.totalScore<x.s);
+  if(newRec){ icon = '🥇'; title = '新纪录！'; }
   $('fDoneIcon').textContent = icon; $('fDoneTitle').textContent = title;
-  $('fDoneMsg').innerHTML = esc(msg)+'<br>❤️ 人情分 +'+F.score + (lvMsg ? '<br>'+lvMsg : '');
+  $('fDoneMsg').innerHTML = esc(msg)+'<br><b>'+esc(recMsg)+'</b><br>❤️ 人情分 +'+F.score + (lvMsg ? '<br>'+lvMsg : '');
   $('fDecor').innerHTML = fresh.length
     ? '<p><b>🎁 小店新装饰：'+fresh.map(x=>x.i+' '+x.n).join('、')+'</b></p>'
     : nx ? '<p class="decor-note">再得 '+(nx.s-D.totalScore)+' 分就有「'+nx.n+'」'+nx.i+'</p>' : '';
-  F.topics = shuffle([...new Set(F.deck.map(c=>c.id))]);
+  F.topics = F.theme.k==='goods' ? shuffle([...new Set(F.deck.map(c=>TALK[c.id]))]) : shuffle(THEME_TALK[F.theme.k]);
   F.topicAt = 0;
-  $('fTalkQ').textContent = TALK[F.topics[0]];
+  $('fTalkQ').textContent = F.topics[0];
+  $('fNext').textContent = F.daily ? '🃏 玩翻牌配对' : '🃏 再玩一局';
   $('board').hidden = true; $('fDone').hidden = false;
   $('fMsg').textContent = '🎉 全部配对成功！';
   Sfx.play('end'); burst($('fDoneIcon'));
-  if(fresh.length) setTimeout(()=>Sfx.play('up'), 900);
+  if(fresh.length || newRec) setTimeout(()=>Sfx.play('up'), 900);
   Speech.say([{text:title, pitch:1.1}]);
-  lbAfterGame('flip', F.lv, F.score, $('fRank'));
+  if(F.daily) $('fRank').hidden = true;
+  else lbAfterGame('flip', F.lv, F.score, $('fRank'));
 }
-$('flipBtn').addEventListener('click', startFlip);
+$('flipBtn').addEventListener('click', ()=>startFlip(false));
+$('dailyBtn').addEventListener('click', ()=>startFlip(true));
 $('fTalkNext').addEventListener('click', ()=>{
   if(!F || !F.topics) return; Sfx.play('tap');
   F.topicAt = (F.topicAt+1) % F.topics.length;
-  const q = TALK[F.topics[F.topicAt]]; $('fTalkQ').textContent = q;
+  const q = F.topics[F.topicAt]; $('fTalkQ').textContent = q;
   Speech.say([{text:q, pitch:1.05}]);
 });
-$('fNext').addEventListener('click', startFlip);
+$('fNext').addEventListener('click', ()=>startFlip(false));
 $('fBack').addEventListener('click', ()=>{ Sfx.play('tap'); Speech.stop(); if(F) clearTimeout(F.timer); F=null; renderHome(); show('home'); });
 $('fHome').addEventListener('click', ()=>{ Sfx.play('tap'); $('leaveModal').classList.add('show'); });
 
